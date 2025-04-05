@@ -43,6 +43,22 @@
         margin-bottom: 30px;
       }
 
+      .instrument-selector {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 15px;
+      }
+
+      .instrument-selector select {
+        flex: 1;
+      }
+
+      .instrument-label {
+        min-width: 80px;
+        font-weight: 500;
+      }
+
       .upload-section {
         background: white;
         padding: 20px;
@@ -225,6 +241,14 @@
             <option value="data/salma-ya-salama.mxl">Salma ya Salama (Complex)</option>
           </select>
         </div>
+      </div>
+
+      <div class="upload-section">
+        <h3>Instrument Settings</h3>
+        <div id="instrument-tracks">
+          <!-- Instrument tracks will be added here dynamically -->
+        </div>
+        <button id="add-instrument" style="margin-top: 10px;">Add Instrument</button>
       </div>
 
       <div id="sheet-container"></div>

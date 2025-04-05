@@ -34,12 +34,66 @@ const PLAYER_PLAYING = 1;
 
 const LOCALSTORAGE_KEY = 'musicxml-player';
 
+const INSTRUMENTS = {
+  'Piano': {
+    name: 'Acoustic Grand Piano',
+    font: '_tone_0000_JCLive_sf2_file',
+    preset: 0
+  },
+  'Electric Piano': {
+    name: 'Electric Piano 1',
+    font: '_tone_0040_JCLive_sf2_file',
+    preset: 4
+  },
+  'Violin': {
+    name: 'Violin',
+    font: '_tone_0400_JCLive_sf2_file',
+    preset: 40
+  },
+  'Cello': {
+    name: 'Cello',
+    font: '_tone_0420_JCLive_sf2_file',
+    preset: 42
+  },
+  'Flute': {
+    name: 'Flute',
+    font: '_tone_0730_JCLive_sf2_file',
+    preset: 73
+  },
+  'Clarinet': {
+    name: 'Clarinet',
+    font: '_tone_0710_JCLive_sf2_file',
+    preset: 71
+  },
+  'Trumpet': {
+    name: 'Trumpet',
+    font: '_tone_0560_JCLive_sf2_file',
+    preset: 56
+  },
+  'Acoustic Guitar': {
+    name: 'Acoustic Guitar (nylon)',
+    font: '_tone_0240_JCLive_sf2_file',
+    preset: 24
+  },
+  'Electric Guitar': {
+    name: 'Electric Guitar (clean)',
+    font: '_tone_0270_JCLive_sf2_file',
+    preset: 27
+  },
+  'Saxophone': {
+    name: 'Alto Sax',
+    font: '_tone_0650_JCLive_sf2_file',
+    preset: 65
+  }
+};
+
 const g_state = {
   webmidi: null,
   player: null,
   params: null,
   musicXml: null,
   options: DEFAULT_OPTIONS,
+  instruments: new Map(),
 }
 
 async function createPlayer() {
@@ -128,6 +182,25 @@ async function createPlayer() {
   // Create new player.
   if (g_state.musicXml) {
     try {
+      // Parse MusicXML to get track count
+      const parsed = parseMusicXml(g_state.musicXml);
+      const trackCount = parsed.parts.length;
+
+      // Create instrument selectors if they don't exist
+      const instrumentTracks = document.getElementById('instrument-tracks');
+      instrumentTracks.innerHTML = ''; // Clear existing
+      
+      for (let i = 1; i <= trackCount; i++) {
+        if (!g_state.instruments.has(i)) {
+          g_state.instruments.set(i, INSTRUMENTS.Piano);
+        }
+        const selector = createInstrumentSelector(i, g_state.instruments.get(i).name);
+        instrumentTracks.appendChild(selector);
+      }
+
+      // Load all instrument sounds
+      await Promise.all(Array.from(g_state.instruments.values()).map(loadInstrumentSound));
+
       const player = await Player.create({
         musicXml: g_state.musicXml,
         container: 'sheet-container',
@@ -138,6 +211,15 @@ async function createPlayer() {
         mute: options.mute,
         repeat: Number(repeat),
         velocity: Number(velocity),
+        instruments: Object.fromEntries(
+          Array.from(g_state.instruments.entries()).map(([track, instrument]) => [
+            track,
+            {
+              player: window[instrument.font],
+              preset: instrument.preset
+            }
+          ])
+        )
       });
 
       // Create the TimingObject listener.
@@ -462,6 +544,56 @@ function savePlayerOptions() {
   }
 }
 
+function createInstrumentSelector(trackNumber, defaultInstrument = 'Piano') {
+  const container = document.createElement('div');
+  container.className = 'instrument-selector';
+  container.dataset.track = trackNumber;
+
+  const label = document.createElement('span');
+  label.className = 'instrument-label';
+  label.textContent = `Track ${trackNumber}:`;
+  container.appendChild(label);
+
+  const select = document.createElement('select');
+  select.className = 'instrument-select';
+  select.id = `instrument-${trackNumber}`;
+  
+  Object.keys(INSTRUMENTS).forEach(instrument => {
+    const option = document.createElement('option');
+    option.value = instrument;
+    option.textContent = instrument;
+    if (instrument === defaultInstrument) {
+      option.selected = true;
+    }
+    select.appendChild(option);
+  });
+
+  select.addEventListener('change', async () => {
+    const instrument = INSTRUMENTS[select.value];
+    g_state.instruments.set(trackNumber, instrument);
+    if (g_state.player) {
+      await loadInstrumentSound(instrument);
+      // Recreate player to apply new instrument
+      await createPlayer();
+    }
+  });
+
+  container.appendChild(select);
+  return container;
+}
+
+async function loadInstrumentSound(instrument) {
+  console.log(`Loading instrument: ${instrument.name} (${instrument.font})`);
+  return new Promise((resolve) => {
+    window[instrument.font] = new WebAudioFontPlayer();
+    window[instrument.font].loader.startLoad(audioContext, instrument.font, instrument.preset);
+    window[instrument.font].loader.waitLoad(() => {
+      console.log(`Loaded ${instrument.name}`);
+      resolve();
+    });
+  });
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   // Load the parameters from local storage and/or the URL.
   const params = new URLSearchParams(document.location.search);
@@ -532,4 +664,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Start the app.
   await handleSampleSelect({ target: { value: g_state.params.get('sheet') ?? DEFAULT_SHEET }});
+});
+
+document.getElementById('add-instrument')?.addEventListener('click', () => {
+  const trackCount = document.querySelectorAll('.instrument-selector').length;
+  const selector = createInstrumentSelector(trackCount + 1);
+  document.getElementById('instrument-tracks').appendChild(selector);
 });
