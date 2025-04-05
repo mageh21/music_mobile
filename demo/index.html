@@ -3,159 +3,511 @@
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
     <title>MusicXML Player Demo</title>
-    <script async defer src="https://buttons.github.io/buttons.js"></script>
     <style>
-      body {
-        background-color: wheat;
-        overflow-x: none;
+      :root {
+        --primary-color: #4a90e2;
+        --secondary-color: #f8f9fa;
+        --text-color: #2c3e50;
+        --border-radius: 8px;
       }
+
+      body {
+        background-color: var(--secondary-color);
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        margin: 0;
+        padding: 20px;
+        color: var(--text-color);
+      }
+
       .hide {
         display: none;
       }
+
+      h1 {
+        text-align: center;
+        color: var(--primary-color);
+        margin-bottom: 30px;
+        font-size: 2.5em;
+      }
+
+      .main-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+
+      .controls-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+      }
+
+      .upload-section {
+        background: white;
+        padding: 20px;
+        border-radius: var(--border-radius);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s;
+      }
+
+      .upload-section:hover {
+        transform: translateY(-2px);
+      }
+
+      .upload-section h3 {
+        margin: 0 0 15px 0;
+        color: var(--primary-color);
+        font-size: 1.2em;
+      }
+
+      input[type="file"] {
+        width: 100%;
+        padding: 10px;
+        border: 2px dashed #ddd;
+        border-radius: var(--border-radius);
+        margin-bottom: 10px;
+        cursor: pointer;
+      }
+
+      input[type="file"]:hover {
+        border-color: var(--primary-color);
+      }
+
+      select {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: var(--border-radius);
+        background: white;
+        cursor: pointer;
+      }
+
+      #sheet-container {
+        height: calc(100vh - 300px);
+        margin: 20px 0;
+        border-radius: var(--border-radius);
+        background: white;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        overflow-y: auto;
+        padding: 20px;
+      }
+
       #player {
         position: fixed;
         bottom: 0;
+        left: 0;
         width: 100%;
         display: flex;
         justify-content: center;
         align-items: center;
+        background: white;
+        padding: 15px;
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
         z-index: 1000;
       }
+
       .player {
-        font-size: larger;
-        margin: 5px;
-        height: 35px;
-        width: 35px;
+        font-size: 24px;
+        margin: 0 10px;
+        height: 50px;
+        width: 50px;
+        border: none;
+        border-radius: 50%;
+        background: var(--primary-color);
+        color: white;
+        cursor: pointer;
+        transition: all 0.2s;
       }
-      #error {
-        background-color: brown;
-        color: lightgray;
+
+      .player:hover {
+        transform: scale(1.1);
+        background: #357abd;
       }
-      #github {
-        position: absolute;
-        top: 5px;
-        right: 5px;
+
+      #feedback, #pdf-feedback {
+        margin-top: 10px;
+        padding: 10px;
+        border-radius: var(--border-radius);
+        font-size: 0.9em;
       }
-      #sheet-container {
-        height: 50vh;
+
+      .success { 
+        color: #2ecc71;
+        background: #e8f8f5;
       }
-      #audio-offset {
-        width: 5em;
+
+      .error { 
+        color: #e74c3c;
+        background: #fdedec;
+      }
+
+      .loading { 
+        color: var(--primary-color);
+        background: #eef7ff;
+      }
+
+      .spinner {
+        border: 3px solid rgba(74, 144, 226, 0.1);
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        border-left-color: var(--primary-color);
+        animation: spin 1s linear infinite;
+        display: inline-block;
+        vertical-align: middle;
+        margin-right: 10px;
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      button {
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: var(--border-radius);
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+
+      button:hover {
+        background: #357abd;
       }
     </style>
     <link rel="stylesheet" href="build/musicxml-player.css">
-    <script type="module" src="demo.mjs"></script>
   </head>
   <body>
-    <div id="github">
-      <a class="github-button" href="https://github.com/infojunkie/musicxml-player" data-size="large" aria-label="Star infojunkie/musicxml-player on GitHub">Star on GitHub</a>
-    </div>
-    <code id="version"></code>
-    <h1>MusicXML Player Demo</h1>
-    <div>
-      <label for="samples">Choose a sample from the list here</label>&nbsp;
-      <select id="samples">
-        <option value="">-- Choose --</option>
-        <option value="data/salma-ya-salama.mxl">Salma ya Salama (Compressed MusicXML)</option>
-        <option value="data/asa-branca.musicxml">Asa Branca (Uncompressed MusicXML)</option>
-        <option value="data/tutorial-apres-un-reve.musicxml">Après un rêve (MuseScore Rendering)</option>
-        <option value="data/rast-tetrachord.musicxml">Rast Tetrachords (Microtonal MusicXML)</option>
-        <option value="data/baiao-miranda.musicxml">Baião Groove (Rhythm MusicXML)</option>
-        <option value="data/jazz1460.txt">Playlist: Jazz 1460 (iReal Pro)</option>
-      </select>
-    </div>
+    <div class="main-container">
+      <h1>MusicXML Player</h1>
 
-    <div>
-      <label for="upload">Or upload a MusicXML file or an iReal Pro playlist</label>&nbsp;
-      <input type="file" id="upload" name="upload"/>
-      <span id="error"></span>
-    </div>
+      <div class="controls-grid">
+        <div class="upload-section">
+          <h3>Upload MusicXML File</h3>
+          <input type="file" id="file-input" accept=".musicxml,.mxl,.xml"/>
+          <div id="feedback"></div>
+        </div>
 
-    <div>
-      <label for="ireal">Or paste an iReal Pro song URI directly</label>&nbsp;
-      <input type="text" size="50" id="ireal" name="ireal" placeholder="irealb://... or irealbook://..."/>
-    </div>
+        <div class="upload-section">
+          <h3>Upload PDF Score</h3>
+          <input type="file" id="pdf-input" accept=".pdf,image/*"/>
+          <button id="convert-basic-btn">Convert to MusicXML</button>
+          <div id="pdf-feedback"></div>
+        </div>
 
-    <div>
-      Sheets
-      <select id="sheets"></select>
-      <span id="download-musicxml"></span>
-      <span id="download-midi"></span>
-    </div>
+        <div class="upload-section">
+          <h3>Sample Scores</h3>
+          <select id="samples">
+            <option value="">-- Choose a sample --</option>
+            <option value="data/asa-branca.musicxml">Asa Branca (Simple)</option>
+            <option value="data/salma-ya-salama.mxl">Salma ya Salama (Complex)</option>
+          </select>
+        </div>
+      </div>
 
-    <div>
-      Renderer
-      <input type="radio" id="renderer-osmd" name="renderer" value="osmd"/>
-      <label for="renderer-osmd">OpenSheetMusicDisplay</label>
-      <input type="radio" id="renderer-vrv" name="renderer" value="vrv"/>
-      <label for="renderer-vrv">Verovio</label>
-      <input type="radio" id="renderer-mscore" name="renderer" value="mscore"/>
-      <label for="renderer-mscore">MuseScore (SVG)</label>
-      <div class="renderer-options">
-        <input type="checkbox" class="renderer-option" id="option-unroll" value="unroll"/>
-        <label for="option-unroll">Unroll score</label>
-        <input type="checkbox" class="renderer-option" id="option-horizontal" value="horizontal"/>
-        <label for="option-horizontal">Horizontal layout</label>
+      <div id="sheet-container"></div>
+
+      <div id="player">
+        <button class="player" id="rewind" title="Rewind">⏮</button>
+        <button class="player" id="play" title="Play">▶</button>
+        <button class="player" id="pause" title="Pause">⏸</button>
       </div>
     </div>
 
-    <div>
-      Converter
-      <input type="radio" id="converter-midi" name="converter" value="midi"/>
-      <label for="converter-midi">Custom MIDI</label>
-      <input type="radio" id="converter-mma" name="converter" value="mma"/>
-      <label for="converter-mma">MusicXML MMA</label>
-      <input type="radio" id="converter-vrv" name="converter" value="vrv"/>
-      <label for="converter-vrv">Verovio</label>
-      <input type="radio" id="converter-mscore" name="converter" value="mscore"/>
-      <label for="converter-mscore">MuseScore</label>
-    </div>
+    <script type="module">
+      import {
+        Player,
+        VerovioConverter,
+        VerovioRenderer
+      } from './build/musicxml-player.mjs';
 
-    <div>
-      <label for="grooves">Groove</label>
-      <input list="grooves-list" id="grooves"/>
-      <datalist id="grooves-list"></datalist>
-      Depends on the MusicXML MMA converter.
-    </div>
+      let currentPlayer = null;
 
-    <div>
-      <label for="outputs">MIDI output</label>
-      <select id="outputs"></select>
-      <input type="checkbox" class="player-option" id="option-mute" value="mute"/>
-      <label for="option-mute">Mute</label>
-      <div>
-        If you're not using the local synth, you need to connect this output to a MIDI synth like FluidSynth, TiMidity, or <a href="https://mmontag.github.io/dx7-synth-js/" target="_blank">DX7 Synth</a>.
-      </div>
-    </div>
+      async function createNewPlayer(musicXml) {
+        try {
+          // Clean up old player if it exists
+          if (currentPlayer) {
+            try {
+              if (currentPlayer.isPlaying) {
+                currentPlayer.pause();
+              }
+              if (typeof currentPlayer.destroy === 'function') {
+                currentPlayer.destroy();
+              }
+            } catch (e) {
+              console.warn('Error cleaning up old player:', e);
+            }
+            currentPlayer = null;
+          }
 
-    <div>
-      <label for="audio-file">Audio track and offset</label>
-      <input type="file" id="audio-file" name="upload"/>
-      <input type="number" id="audio-offset" name="audio-offset" value="0" step="50" disabled/> ms.
-      <div>
-        <audio id="audio-track"></audio>
-      </div>
-    </div>
+          // Clear the container
+          const container = document.getElementById('sheet-container');
+          container.innerHTML = '';
 
-    <div>
-      <label for="velocity">Velocity</label>
-      <input type="number" id="velocity" name="velocity" value="1" min="0.25" max="2" step="0.25"/>
-      <label for="repeat">Repeat</label>
-      <select id="repeat" name="repeat">
-        <option value="1">1</option>
-        <option value="2">2</option>
-        <option value="3">3</option>
-        <option value="4">4</option>
-        <option value="-1">∞</option>
-      </select>
-    </div>
+          console.log('Creating new player with MusicXML data...');
+          
+          // Validate and clean the MusicXML data
+          if (!musicXml || typeof musicXml !== 'string') {
+            console.error('Invalid MusicXML data:', musicXml ? musicXml.substring(0, 100) + '...' : 'undefined');
+            throw new Error('Invalid MusicXML data provided');
+          }
 
-    <div id="player">
-      <button class="player" id="rewind">⏮</button>
-      <button class="player" id="pause">⏸</button>
-      <button class="player" id="play">▶</button>
-    </div>
+          // Clean up potential XML issues
+          const cleanXml = musicXml.trim()
+            .replace(/>\s+</g, '><') // Remove whitespace between tags
+            .replace(/<\/([^>]*)><\/\1>/g, '</$1>') // Fix double closing tags
+            .replace(/([^>])\n([^<])/g, '$1 $2'); // Replace newlines between text with spaces
 
-    <div id="sheet-container"></div>
+          if (!cleanXml.startsWith('<?xml')) {
+            throw new Error('Invalid MusicXML: Missing XML declaration');
+          }
+
+          // Create new player with adjusted settings
+          currentPlayer = await Player.create({
+            musicXml: cleanXml,
+            container: 'sheet-container',
+            renderer: new VerovioRenderer({
+              scale: 40,
+              adjustPageHeight: true,
+              breaks: 'auto',
+              justifyVertically: true,
+              spacingLinear: 0.25,
+              spacingNonLinear: 0.6,
+              minLastJustification: 0.8,
+              svgViewBox: true
+            }),
+            converter: new VerovioConverter({
+              // Removed unsupported options: validateXml, cleanupMusicXml
+            })
+          });
+
+          // Set up player controls
+          document.getElementById('play').onclick = () => {
+            if (currentPlayer && typeof currentPlayer.play === 'function') {
+              currentPlayer.play();
+            }
+          };
+
+          document.getElementById('pause').onclick = () => {
+            if (currentPlayer && typeof currentPlayer.pause === 'function') {
+              currentPlayer.pause();
+            }
+          };
+
+          document.getElementById('rewind').onclick = () => {
+            console.log('Rewind button clicked'); // Log click
+            if (currentPlayer) {
+              console.log('Current player exists.');
+              // Call the player's own rewind method if it exists
+              if (typeof currentPlayer.rewind === 'function') {
+                console.log('Calling player.rewind()...');
+                currentPlayer.rewind();
+              } else {
+                // This case should ideally not happen based on source code analysis
+                console.error('rewind() method not found on player object!');
+              }
+            } else {
+                console.log('No current player found.');
+            }
+          };
+
+          return true;
+        } catch (error) {
+          console.error('Error creating player:', error);
+          return false;
+        }
+      }
+
+      async function loadFile(file) {
+        const feedback = document.getElementById('feedback');
+        feedback.className = 'loading';
+        feedback.textContent = 'Loading file...';
+
+        try {
+          const content = await file.text();
+          const success = await createNewPlayer(content);
+
+          if (success) {
+            feedback.className = 'success';
+            feedback.textContent = 'File loaded successfully!';
+          } else {
+            feedback.className = 'error';
+            feedback.textContent = 'Error: Failed to load the file. Please check if it\'s a valid MusicXML file.';
+          }
+        } catch (error) {
+          console.error('File loading error:', error);
+          feedback.className = 'error';
+          feedback.textContent = 'Error: ' + (error.message || 'Failed to load the file');
+        }
+      }
+
+      // Function to handle PDF uploads and conversion
+      async function convertPdfToMusicXml(pdfFile) {
+        const feedback = document.getElementById('pdf-feedback');
+        const basicBtn = document.getElementById('convert-basic-btn');
+
+        if (!pdfFile) {
+          feedback.className = 'error';
+          feedback.textContent = 'Please select a PDF or image file first.';
+          return;
+        }
+
+        // Basic Conversion Call
+        basicBtn.onclick = async () => {
+          const formData = new FormData();
+          formData.append('file', pdfFile);
+
+          feedback.className = 'loading';
+          feedback.innerHTML = '<span class="spinner"></span> Converting (basic)...';
+          basicBtn.disabled = true;
+
+          try {
+            const response = await fetch('http://localhost:8000/convert', {
+              method: 'POST',
+              body: formData
+            });
+
+            if (!response.ok) {
+              let errorMsg = `HTTP error! status: ${response.status}`;
+              try {
+                const errData = await response.json();
+                errorMsg = errData.detail || errorMsg;
+              } catch (e) { /* Ignore if response is not JSON */ }
+              throw new Error(errorMsg);
+            }
+
+            const blob = await response.blob();
+            
+            // --- Handle potential MXL (ZIP) file ---
+            let musicXmlText = '';
+            // Check if it looks like a zip file (PK signature)
+            const firstBytes = await blob.slice(0, 2).text();
+            if (firstBytes === 'PK') {
+              console.log('Detected ZIP/MXL format, attempting to unzip...');
+              try {
+                // Dynamically import unzipit from the local lib directory
+                const { unzip, setOptions } = await import('./lib/unzipit.js'); 
+                setOptions({ workerURL: './lib/sw.js' }); 
+
+                const { entries } = await unzip(blob);
+                console.log('Unzipped entries:', Object.keys(entries));
+
+                // Find the main MusicXML file via container.xml
+                let musicXmlPath = '';
+                if (entries['META-INF/container.xml']) {
+                  const containerText = await entries['META-INF/container.xml'].text();
+                  const parser = new DOMParser();
+                  const containerDoc = parser.parseFromString(containerText, 'application/xml');
+                  musicXmlPath = containerDoc.querySelector('rootfile')?.getAttribute('full-path') || '';
+                  console.log('Found path in container.xml:', musicXmlPath);
+                } else {
+                    // Fallback: find the first .musicxml or .xml file if container.xml is missing
+                    musicXmlPath = Object.keys(entries).find(name => name.endsWith('.musicxml') || name.endsWith('.xml')) || '';
+                    console.warn('container.xml not found, falling back to first XML file:', musicXmlPath);
+                }
+
+                if (musicXmlPath && entries[musicXmlPath]) {
+                  musicXmlText = await entries[musicXmlPath].text();
+                  console.log('Successfully extracted MusicXML from MXL.');
+                } else {
+                  throw new Error('Could not find a valid MusicXML file inside the archive.');
+                }
+              } catch (zipError) {
+                console.error('Error processing MXL file:', zipError);
+                throw new Error(`Failed to read MXL file: ${zipError.message}`);
+              }
+            } else {
+              // Assume plain text if not starting with PK
+              console.log('Assuming plain MusicXML format.');
+              musicXmlText = await blob.text();
+            }
+            // --- End MXL handling ---
+            
+            // --- DEBUGGING: Log the received text ---
+            console.log('Received MusicXML Text (Basic, after potential unzip):', musicXmlText.substring(0, 500) + (musicXmlText.length > 500 ? '...' : ''));
+            // --- END DEBUGGING ---
+
+            feedback.textContent = 'Conversion successful! Loading score...';
+            const success = await createNewPlayer(musicXmlText);
+
+            if (success) {
+              feedback.className = 'success';
+              feedback.textContent = 'Conversion successful! Score loaded.';
+            } else {
+              feedback.className = 'error';
+              feedback.textContent = 'Conversion successful, but failed to load the score into the player.';
+            }
+          } catch (error) {
+            console.error('Basic conversion error:', error);
+            feedback.className = 'error';
+            feedback.textContent = `Error: ${error.message}`;
+          } finally {
+            basicBtn.disabled = false;
+          }
+        };
+      }
+
+      // Event listener for PDF file input change
+      document.getElementById('pdf-input').addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        const feedback = document.getElementById('pdf-feedback');
+        const basicBtn = document.getElementById('convert-basic-btn');
+
+        if (file) {
+          feedback.className = '';
+          feedback.textContent = `Selected: ${file.name}`;
+          // Prepare the conversion functions with the selected file
+          convertPdfToMusicXml(file);
+          basicBtn.disabled = false; // Enable buttons now that a file is selected
+        } else {
+          feedback.className = '';
+          feedback.textContent = '';
+          basicBtn.disabled = true; // Disable buttons if no file is selected
+          // Clear old handlers if any (or re-run convertPdfToMusicXml with null)
+          convertPdfToMusicXml(null);
+        }
+      });
+
+      // Initially disable conversion buttons
+      document.getElementById('convert-basic-btn').disabled = true;
+
+      // Event listener for MusicXML file input change
+      document.getElementById('file-input').addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (file) {
+          loadFile(file);
+        }
+      });
+
+      // Set up sample selector
+      document.getElementById('samples').addEventListener('change', (event) => {
+        const sample = event.target.value;
+        if (sample) {
+          fetch(sample)
+            .then(response => response.text())
+            .then(content => createNewPlayer(content))
+            .catch(error => {
+              console.error('Error loading sample:', error);
+              const feedback = document.getElementById('feedback');
+              feedback.className = 'error';
+              feedback.textContent = 'Error loading sample file.';
+            });
+        }
+      });
+
+      // Load default sample
+      fetch('data/asa-branca.musicxml')
+        .then(response => response.text())
+        .then(content => createNewPlayer(content))
+        .catch(error => {
+          console.error('Error loading default sample:', error);
+          const feedback = document.getElementById('feedback');
+          feedback.className = 'error';
+          feedback.textContent = 'Error loading default sample. Please try uploading your own file.';
+        });
+    </script>
   </body>
 </html>
