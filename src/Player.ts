@@ -279,15 +279,19 @@ export class Player implements IMidiOutput {
 
   /**
    * Start playback.
-   *
-   * @param velocity Playback rate
-   * @returns A promise that resolves when the player is paused or stopped.
    */
   async play() {
     if (this._midiPlayer.state === PlayerState.Playing) return;
+    
+    // Clear any pending sounds before starting playback
+    this.clear();
+    
     if (this._output instanceof SoundFontOutput) {
       await (this._output as SoundFontOutput).initialize();
     }
+    
+    // Small delay to ensure audio buffers are cleared
+    await new Promise(resolve => setTimeout(resolve, 50));
     await this._play();
   }
 
@@ -298,15 +302,31 @@ export class Player implements IMidiOutput {
     if (this._midiPlayer.state !== PlayerState.Playing) return;
     this._midiPlayer.pause();
     this._timingObject.update({ velocity: 0 });
+    this.clear(); // Clear any pending MIDI events
   }
 
   /**
    * Stop playback and rewind to start.
    */
   rewind() {
+    // First stop the MIDI player and clear any pending sounds
     this._midiPlayer.stop();
-    this._options.renderer.moveTo(0, 0, 0);
+    this.clear(); // Clear any pending MIDI events
+    
+    // Reset the timing object first to ensure proper state
     this._timingObject.update({ velocity: 0, position: 0 });
+    
+    // Reset the MIDI player position
+    this._midiPlayer.position = 0;
+    
+    // Reset the visual cursor and scroll to beginning
+    this._options.renderer.moveTo(0, 0, 0);
+    
+    // If we were playing, wait a brief moment before restarting playback
+    // to allow audio buffers to clear
+    if (this._midiPlayer.state === PlayerState.Playing) {
+      setTimeout(() => this._play(), 50);
+    }
   }
 
   /**
@@ -425,7 +445,12 @@ export class Player implements IMidiOutput {
    * Implementation of IMidiOutput.clear().
    */
   clear() {
-    this._output.clear?.();
+    if (this._output?.clear) {
+      this._output.clear();
+    }
+    if (this._output?.stopAllSounds) {
+      this._output.stopAllSounds();
+    }
   }
 
   protected async _play() {
