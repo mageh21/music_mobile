@@ -338,6 +338,7 @@
       }
     </style>
     <link rel="stylesheet" href="build/musicxml-player.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   </head>
   <body>
     <div class="main-container">
@@ -346,7 +347,7 @@
       <div class="controls-grid">
         <div class="upload-section">
           <h3>Upload MusicXML File</h3>
-          <input type="file" id="file-input" accept=".musicxml,.mxl,.xml"/>
+          <input type="file" id="file-input" accept=".musicxml,.mxl"/>
           <div id="feedback"></div>
         </div>
 
@@ -807,6 +808,93 @@
         }
       }
 
+      // Update the file validation function
+      function isValidMusicXMLFile(file) {
+        const validExtensions = ['.musicxml', '.mxl'];
+        const fileName = file.name.toLowerCase();
+        return validExtensions.some(ext => fileName.endsWith(ext));
+      }
+
+      // Function to validate MusicXML content
+      function validateMusicXMLContent(content) {
+        try {
+          // Parse the XML content
+          const parser = new DOMParser();
+          const xmlDoc = parser.parseFromString(content, 'text/xml');
+
+          // Check for parsing errors
+          const parseError = xmlDoc.getElementsByTagName('parsererror');
+          if (parseError.length > 0) {
+            throw new Error('Invalid XML format');
+          }
+
+          // Check for MusicXML elements (more flexible validation)
+          const isScorePartwise = xmlDoc.getElementsByTagName('score-partwise').length > 0;
+          const isScoreTimewise = xmlDoc.getElementsByTagName('score-timewise').length > 0;
+          const hasPart = xmlDoc.getElementsByTagName('part').length > 0;
+          const hasPartList = xmlDoc.getElementsByTagName('part-list').length > 0;
+          const hasMeasure = xmlDoc.getElementsByTagName('measure').length > 0;
+
+          // Accept if it has basic MusicXML structure
+          if ((isScorePartwise || isScoreTimewise) && (hasPart || hasPartList || hasMeasure)) {
+            return true;
+          }
+
+          throw new Error('File does not contain valid MusicXML content');
+        } catch (error) {
+          console.error('XML validation error:', error);
+          throw new Error(`Invalid MusicXML content: ${error.message}`);
+        }
+      }
+
+      // Function to handle compressed MusicXML (.mxl) files
+      async function handleCompressedMusicXML(file) {
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          const zip = await JSZip.loadAsync(arrayBuffer);
+          
+          // Find the main MusicXML file (usually container.xml first, then first .xml file)
+          let xmlContent = null;
+          let mainXmlFile = null;
+
+          // First try to read container.xml
+          try {
+            const containerXml = await zip.file("META-INF/container.xml")?.async("string");
+            if (containerXml) {
+              const parser = new DOMParser();
+              const containerDoc = parser.parseFromString(containerXml, "text/xml");
+              const rootfile = containerDoc.querySelector("rootfile");
+              if (rootfile) {
+                const fullPath = rootfile.getAttribute("full-path");
+                if (fullPath) {
+                  mainXmlFile = zip.file(fullPath);
+                }
+              }
+            }
+          } catch (e) {
+            console.warn("No container.xml found or error reading it:", e);
+          }
+
+          // If no main file found through container.xml, find first .xml file
+          if (!mainXmlFile) {
+            mainXmlFile = Object.values(zip.files).find(file => 
+              !file.dir && (file.name.endsWith('.xml') || file.name.endsWith('.musicxml'))
+            );
+          }
+
+          if (!mainXmlFile) {
+            throw new Error("No MusicXML file found in the compressed archive");
+          }
+
+          xmlContent = await mainXmlFile.async("string");
+          return xmlContent;
+        } catch (error) {
+          console.error("Error processing compressed MusicXML:", error);
+          throw new Error(`Failed to process compressed MusicXML: ${error.message}`);
+        }
+      }
+
+      // Update the file loading function
       async function loadFile(file) {
         const feedback = document.getElementById('feedback');
         feedback.className = 'loading';
@@ -817,11 +905,23 @@
             throw new Error('No file provided');
           }
 
-          const content = await file.text();
-          if (!content) {
-            throw new Error('File is empty');
+          if (!isValidMusicXMLFile(file)) {
+            throw new Error('Invalid file type. Please select a .musicxml or .mxl file');
           }
 
+          let content;
+          if (file.name.toLowerCase().endsWith('.mxl')) {
+            feedback.textContent = 'Decompressing MusicXML file...';
+            content = await handleCompressedMusicXML(file);
+          } else {
+            content = await file.text();
+          }
+          
+          // Validate the content
+          validateMusicXMLContent(content);
+
+          // If validation passes, create the player
+          feedback.textContent = 'Creating player...';
           await createNewPlayer(content);
           feedback.className = 'success';
           feedback.textContent = 'File loaded successfully!';
@@ -837,148 +937,7 @@
         }
       }
 
-      // Function to handle PDF uploads and conversion
-      async function convertPdfToMusicXml(pdfFile) {
-        const feedback = document.getElementById('pdf-feedback');
-        const basicBtn = document.getElementById('convert-basic-btn');
-
-        if (!pdfFile) {
-          feedback.className = 'error';
-          feedback.textContent = 'Please select a PDF or image file first.';
-          return;
-        }
-
-        // Basic Conversion Call
-        basicBtn.onclick = async () => {
-          const formData = new FormData();
-          formData.append('file', pdfFile);
-
-          feedback.className = 'loading';
-          feedback.innerHTML = '<span class="spinner"></span> Converting (basic)...';
-          basicBtn.disabled = true;
-
-          try {
-            const response = await fetch('http://localhost:8000/convert', {
-              method: 'POST',
-              body: formData
-            });
-
-            if (!response.ok) {
-              let errorMsg = `HTTP error! status: ${response.status}`;
-              try {
-                const errData = await response.json();
-                errorMsg = errData.detail || errorMsg;
-              } catch (e) { /* Ignore if response is not JSON */ }
-              throw new Error(errorMsg);
-            }
-
-            const blob = await response.blob();
-            
-            // --- Handle potential MXL (ZIP) file ---
-            let musicXmlText = '';
-            // Check if it looks like a zip file (PK signature)
-            const firstBytes = await blob.slice(0, 2).text();
-            if (firstBytes === 'PK') {
-              console.log('Detected ZIP/MXL format, attempting to unzip...');
-              try {
-                // Dynamically import unzipit from the local lib directory
-                const { unzip, setOptions } = await import('./lib/unzipit.js'); 
-                setOptions({ workerURL: './lib/sw.js' }); 
-
-                const { entries } = await unzip(blob);
-                console.log('Unzipped entries:', Object.keys(entries));
-
-                // Find the main MusicXML file via container.xml
-                let musicXmlPath = '';
-                if (entries['META-INF/container.xml']) {
-                  const containerText = await entries['META-INF/container.xml'].text();
-                  const parser = new DOMParser();
-                  const containerDoc = parser.parseFromString(containerText, 'application/xml');
-                  musicXmlPath = containerDoc.querySelector('rootfile')?.getAttribute('full-path') || '';
-                  console.log('Found path in container.xml:', musicXmlPath);
-                } else {
-                    // Fallback: find the first .musicxml or .xml file if container.xml is missing
-                    musicXmlPath = Object.keys(entries).find(name => name.endsWith('.musicxml') || name.endsWith('.xml')) || '';
-                    console.warn('container.xml not found, falling back to first XML file:', musicXmlPath);
-                }
-
-                if (musicXmlPath && entries[musicXmlPath]) {
-                  musicXmlText = await entries[musicXmlPath].text();
-                  console.log('Successfully extracted MusicXML from MXL.');
-                } else {
-                  throw new Error('Could not find a valid MusicXML file inside the archive.');
-                }
-              } catch (zipError) {
-                console.error('Error processing MXL file:', zipError);
-                throw new Error(`Failed to read MXL file: ${zipError.message}`);
-              }
-            } else {
-              // Assume plain text if not starting with PK
-              console.log('Assuming plain MusicXML format.');
-              musicXmlText = await blob.text();
-            }
-            // --- End MXL handling ---
-            
-            // --- DEBUGGING: Log the received text ---
-            console.log('Received MusicXML Text (Basic, after potential unzip):', musicXmlText.substring(0, 500) + (musicXmlText.length > 500 ? '...' : ''));
-            // --- END DEBUGGING ---
-
-            feedback.textContent = 'Conversion successful! Loading score...';
-            const success = await createNewPlayer(musicXmlText);
-
-            if (success) {
-              feedback.className = 'success';
-              feedback.textContent = 'Conversion successful! Score loaded.';
-              // createNewPlayer sets the buttons, no need to repeat here
-            } else {
-              feedback.className = 'error';
-              feedback.textContent = 'Conversion successful, but failed to load the score into the player.';
-              // Set default state if player load failed after conversion
-              console.log('[convertPdfToMusicXml] Player load failed. Setting default button state.');
-              playBtn.disabled = false;
-              pauseBtn.disabled = true;
-              rewindBtn.disabled = false;
-            }
-          } catch (error) {
-            console.error('Basic conversion error:', error);
-            feedback.className = 'error';
-            feedback.textContent = `Error: ${error.message}`;
-            // Ensure buttons are in default state on conversion error
-            console.log('[convertPdfToMusicXml] Conversion Error. Setting default button state.');
-            playBtn.disabled = false;
-            pauseBtn.disabled = true;
-            rewindBtn.disabled = false;
-          } finally {
-            basicBtn.disabled = false;
-          }
-        };
-      }
-
-      // Event listener for PDF file input change
-      document.getElementById('pdf-input').addEventListener('change', (event) => {
-        const file = event.target.files[0];
-        const feedback = document.getElementById('pdf-feedback');
-        const basicBtn = document.getElementById('convert-basic-btn');
-
-        if (file) {
-          feedback.className = '';
-          feedback.textContent = `Selected: ${file.name}`;
-          // Prepare the conversion functions with the selected file
-          convertPdfToMusicXml(file);
-          basicBtn.disabled = false; // Enable buttons now that a file is selected
-        } else {
-          feedback.className = '';
-          feedback.textContent = '';
-          basicBtn.disabled = true; // Disable buttons if no file is selected
-          // Clear old handlers if any (or re-run convertPdfToMusicXml with null)
-          convertPdfToMusicXml(null);
-        }
-      });
-
-      // Initially disable conversion buttons
-      document.getElementById('convert-basic-btn').disabled = true;
-
-      // Event listener for MusicXML file input change
+      // Event listener for file input change
       document.getElementById('file-input').addEventListener('change', (event) => {
         const file = event.target.files[0];
         if (file) {
@@ -986,7 +945,7 @@
         }
       });
 
-      // Set up sample selector
+      // Update sample loading with the same validation
       document.getElementById('samples').addEventListener('change', async (event) => {
         const sample = event.target.value;
         if (sample) {
@@ -996,16 +955,21 @@
           
           try {
             const response = await fetch(sample);
+            if (!response.ok) {
+              throw new Error(`Failed to load sample: ${response.statusText}`);
+            }
             const content = await response.text();
-            await createNewPlayer(content);
             
-            // createNewPlayer sets the buttons
+            // Validate the content
+            validateMusicXMLContent(content);
+            
+            await createNewPlayer(content);
             feedback.className = 'success';
             feedback.textContent = 'Sample loaded successfully!';
           } catch (error) {
             console.error('Error loading sample:', error);
             feedback.className = 'error';
-            feedback.textContent = 'Error loading sample file.';
+            feedback.textContent = `Error loading sample: ${error.message}`;
             // Ensure buttons are in default state on sample load error
             console.log('[samples.onChange] Error. Setting default button state.');
             playBtn.disabled = false;
@@ -1015,108 +979,23 @@
         }
       });
 
-      // Handle instrument selection
-      document.getElementById('instrumentSelector').addEventListener('change', async (event) => {
-        const selectedInstrumentId = event.target.value;
-        if (!currentMusicXml || selectedInstrumentId === currentInstrumentId) return;
-
-        try {
-          console.log('[instrumentSelector.onChange] Changing instrument to:', selectedInstrumentId);
-          await initializeSoundFont(selectedInstrumentId, true);
-          await createNewPlayer(currentMusicXml, selectedInstrumentId);
-        } catch (error) {
-          console.error('Error changing instrument:', error);
-          console.log('[instrumentSelector.onChange] Error. Setting default button state.');
-          playBtn.disabled = false;
-          pauseBtn.disabled = true;
-          rewindBtn.disabled = false;
-        }
-      });
-
-      // Add tempo, pitch, and frequency control handlers
-      const tempoControl = document.getElementById('tempoControl');
-      const tempoValue = document.getElementById('tempoValue');
-      const pitchControl = document.getElementById('pitchControl');
-      const pitchValue = document.getElementById('pitchValue');
-      const frequencyControl = document.getElementById('frequencyControl');
-      const frequencyValue = document.getElementById('frequencyValue');
-
-      // Standard A4 reference frequency
-      const STANDARD_A4 = 440;
-
-      // Update pitch function
-      function updatePitch() {
-        if (!currentPlayer) return;
-
-        try {
-          const semitones = parseInt(pitchControl.value);
-          const frequency = parseInt(frequencyControl.value);
-          
-          // Check if pitch settings have actually changed
-          if (!havePitchSettingsChanged(semitones, frequency)) {
-            console.log('[updatePitch] Pitch settings unchanged, skipping update');
-            return;
-          }
-
-          // Calculate combined pitch adjustment
-          const frequencyRatio = frequency / STANDARD_A4;
-          const semitonePitch = Math.pow(2, semitones / 12);
-          const combinedPitch = frequencyRatio * semitonePitch;
-          
-          currentPlayer.pitch = combinedPitch;
-          
-          // Update current settings
-          currentPitchSettings.semitones = semitones;
-          currentPitchSettings.frequency = frequency;
-          
-          console.log('[updatePitch] Updated pitch settings:', { semitones, frequency, combinedPitch });
-        } catch (error) {
-          console.error('Error updating pitch:', error);
-        }
-      }
-
-      // Update tempo display and player
-      tempoControl.addEventListener('input', (event) => {
-        const tempo = event.target.value;
-        tempoValue.textContent = tempo;
-        if (currentPlayer) {
-          try {
-            currentPlayer.tempo = tempo / 120; // Normalize tempo (120 BPM is the base tempo)
-          } catch (error) {
-            console.error('Error setting tempo:', error);
-          }
-        }
-      });
-
-      // Update transpose display and player
-      pitchControl.addEventListener('input', (event) => {
-        const semitones = event.target.value;
-        pitchValue.textContent = semitones;
-        updatePitch();
-      });
-
-      // Update frequency display and player
-      frequencyControl.addEventListener('input', (event) => {
-        const frequency = event.target.value;
-        frequencyValue.textContent = frequency;
-        updatePitch();
-      });
-
-      // Update the default sample loading code
+      // Update default sample loading
       async function loadDefaultSample() {
+        const feedback = document.getElementById('feedback');
         try {
           const response = await fetch('data/asa-branca.musicxml');
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
           const content = await response.text();
           await createNewPlayer(content);
           
-          // createNewPlayer sets the buttons
+          feedback.className = 'success';
+          feedback.textContent = 'Default sample loaded successfully!';
         } catch (error) {
           console.error('Error loading default sample:', error);
-          const feedback = document.getElementById('feedback');
-          if (feedback) {
-            feedback.className = 'error';
-            feedback.textContent = 'Error loading default sample. Please try uploading your own file.';
-          }
+          feedback.className = 'error';
+          feedback.textContent = 'Error loading default sample. Please try uploading your own file.';
           // Set initial button state even on error
           console.log('[loadDefaultSample] Error. Setting default button state.');
           playBtn.disabled = false;
