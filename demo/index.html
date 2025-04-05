@@ -3,6 +3,7 @@
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
     <title>MusicXML Player Demo</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
     <style>
       :root {
         --primary-color: #4a90e2;
@@ -119,46 +120,157 @@
       }
 
       .slider-control {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        min-width: 200px;
+        position: relative;
+        transition: opacity 0.3s;
       }
 
-      .slider-control label {
-        font-size: 14px;
-        color: var(--text-color);
-        min-width: 120px;
+      .slider-control::before {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 5px 10px;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        border-radius: 4px;
+        font-size: 12px;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s;
+        white-space: nowrap;
+        pointer-events: none;
       }
 
-      .slider-control input[type="range"] {
-        flex: 1;
-        height: 6px;
-        -webkit-appearance: none;
-        background: #ddd;
-        border-radius: 3px;
-        outline: none;
+      .slider-control:hover::before {
+        opacity: 1;
+        visibility: visible;
+        bottom: calc(100% + 5px);
       }
 
-      .slider-control input[type="range"]::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        width: 16px;
-        height: 16px;
+      .slider-control input[type="range"].adjusting {
         background: var(--primary-color);
+      }
+
+      .slider-control input[type="range"].processing {
+        opacity: 0.7;
+        cursor: wait;
+      }
+
+      .slider-control input[type="range"].success {
+        background: #2ecc71;
+        transition: background 0.3s;
+      }
+
+      .slider-control input[type="range"].error {
+        background: #e74c3c;
+        transition: background 0.3s;
+      }
+
+      .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.9);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s;
+      }
+
+      .loading-overlay.active {
+        opacity: 1;
+        visibility: visible;
+      }
+
+      .loading-content {
+        text-align: center;
+        color: var(--primary-color);
+      }
+
+      .loading-spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid rgba(74, 144, 226, 0.3);
         border-radius: 50%;
-        cursor: pointer;
-        transition: all 0.2s;
+        border-top-color: var(--primary-color);
+        animation: spin 1s linear infinite;
+        margin: 0 auto 15px;
       }
 
-      .slider-control input[type="range"]::-webkit-slider-thumb:hover {
-        transform: scale(1.1);
+      .loading-text {
+        font-size: 16px;
+        margin-top: 10px;
       }
 
-      .slider-control .value {
-        min-width: 60px;
-        font-size: 14px;
-        color: var(--text-color);
-        text-align: right;
+      .progress-bar {
+        width: 200px;
+        height: 4px;
+        background: rgba(74, 144, 226, 0.2);
+        border-radius: 2px;
+        margin: 10px auto;
+        overflow: hidden;
+      }
+
+      .progress-bar-fill {
+        height: 100%;
+        background: var(--primary-color);
+        width: 0%;
+        transition: width 0.3s;
+      }
+
+      /* Enhanced tooltips for controls */
+      [data-tooltip] {
+        position: relative;
+      }
+
+      [data-tooltip]:hover::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 5px 10px;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        border-radius: 4px;
+        font-size: 12px;
+        white-space: nowrap;
+        z-index: 1000;
+      }
+
+      /* Status indicators */
+      .status-indicator {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-left: 5px;
+        transition: all 0.3s;
+      }
+
+      .status-indicator.loading {
+        background: var(--primary-color);
+        animation: pulse 1s infinite;
+      }
+
+      .status-indicator.success {
+        background: #2ecc71;
+      }
+
+      .status-indicator.error {
+        background: #e74c3c;
+      }
+
+      @keyframes pulse {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.2); opacity: 0.5; }
+        100% { transform: scale(1); opacity: 1; }
       }
 
       .player {
@@ -336,25 +448,52 @@
       @keyframes spin {
         to { transform: rotate(360deg); }
       }
+
+      .instrument-selector.loading {
+        position: relative;
+        pointer-events: none;
+        opacity: 0.7;
+      }
+      .instrument-selector.loading::after {
+        content: '';
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(74, 144, 226, 0.3);
+        border-radius: 50%;
+        border-top-color: var(--primary-color);
+        animation: spin 0.8s linear infinite;
+      }
     </style>
     <link rel="stylesheet" href="build/musicxml-player.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   </head>
   <body>
+    <div class="loading-overlay">
+      <div class="loading-content">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Loading...</div>
+        <div class="progress-bar">
+          <div class="progress-bar-fill"></div>
+        </div>
+      </div>
+    </div>
     <div class="main-container">
       <h1>MusicXML Player</h1>
 
       <div class="controls-grid">
         <div class="upload-section">
           <h3>Upload MusicXML File</h3>
-          <input type="file" id="file-input" accept=".musicxml,.mxl"/>
+          <input type="file" id="file-input" accept=".musicxml,.mxl,.xml"/>
           <div id="feedback"></div>
         </div>
 
         <div class="upload-section">
-          <h3>Upload PDF Score</h3>
-          <input type="file" id="pdf-input" accept=".pdf,image/*"/>
-          <button id="convert-basic-btn">Convert to MusicXML</button>
+          <h3>Convert Score to MusicXML</h3>
+          <input type="file" id="pdf-input" accept=".pdf,image/*" placeholder="Upload PDF or Image"/>
+          <button id="convert-basic-btn">Convert Score</button>
           <div id="pdf-feedback"></div>
         </div>
 
@@ -380,20 +519,23 @@
               <button class="player" id="play" title="Play">▶</button>
               <button class="player" id="pause" title="Pause">⏸</button>
             </div>
-            <div class="slider-control">
+            <div class="slider-control" data-tooltip="Adjust playback speed">
               <label>Tempo (BPM)</label>
               <input type="range" id="tempoControl" min="40" max="208" value="120" step="1">
               <span class="value" id="tempoValue">120</span>
+              <span class="status-indicator"></span>
             </div>
-            <div class="slider-control">
+            <div class="slider-control" data-tooltip="Transpose the music up or down">
               <label>Transpose (semitones)</label>
               <input type="range" id="pitchControl" min="-12" max="12" value="0" step="1">
               <span class="value" id="pitchValue">0</span>
+              <span class="status-indicator"></span>
             </div>
-            <div class="slider-control">
+            <div class="slider-control" data-tooltip="Adjust reference pitch (A4)">
               <label>Pitch (Hz)</label>
               <input type="range" id="frequencyControl" min="380" max="480" value="440" step="1">
               <span class="value" id="frequencyValue">440</span>
+              <span class="status-indicator"></span>
             </div>
           </div>
           <select id="instrumentSelector" class="instrument-selector">
@@ -436,6 +578,8 @@
       </div>
     </div>
 
+    <!-- Add unzip library -->
+    <script src="https://unpkg.com/unzipit@1.4.3/dist/unzipit.min.js"></script>
     <script type="module">
       import {
         Player,
@@ -463,12 +607,51 @@
       const pauseBtn = document.getElementById('pause');
       const rewindBtn = document.getElementById('rewind');
 
+      // Loading overlay management
+      const loadingOverlay = {
+        overlay: document.querySelector('.loading-overlay'),
+        text: document.querySelector('.loading-text'),
+        progress: document.querySelector('.progress-bar-fill'),
+        
+        show(message = 'Loading...') {
+          this.text.textContent = message;
+          this.progress.style.width = '0%';
+          this.overlay.classList.add('active');
+        },
+        
+        hide() {
+          this.overlay.classList.remove('active');
+        },
+        
+        setProgress(percent) {
+          this.progress.style.width = `${percent}%`;
+        },
+        
+        updateMessage(message) {
+          this.text.textContent = message;
+        }
+      };
+
       // Function to show loading state on a button
       function setButtonLoading(button, isLoading) {
         if (isLoading) {
           button.classList.add('player-loading');
+          button.disabled = true;  // Disable button while loading
         } else {
           button.classList.remove('player-loading');
+          button.disabled = false; // Re-enable button after loading
+        }
+      }
+
+      // Function to show loading state on instrument selector
+      function setInstrumentSelectorLoading(isLoading) {
+        const selector = document.getElementById('instrumentSelector');
+        if (isLoading) {
+          selector.classList.add('loading');
+          selector.disabled = true;
+        } else {
+          selector.classList.remove('loading');
+          selector.disabled = false;
         }
       }
 
@@ -486,8 +669,40 @@
         }
 
         isLoadingSoundFont = true;
+        setInstrumentSelectorLoading(true);  // Show loading state on selector
+        
         try {
           console.log('[initializeSoundFont] Initializing SoundFont for instrument:', instrumentId);
+
+          // Initialize audio context if needed
+          if (!audioContext || audioContext.state === 'closed') {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          }
+
+          // Resume audio context if suspended
+          if (audioContext.state === 'suspended') {
+            await audioContext.resume();
+          }
+
+          // Clean up previous output
+          if (currentOutput) {
+            try {
+              if (typeof currentOutput.stopAllSounds === 'function') {
+                await currentOutput.stopAllSounds();
+              }
+              if (typeof currentOutput.reset === 'function') {
+                await currentOutput.reset();
+              }
+              if (typeof currentOutput.destroy === 'function') {
+                await currentOutput.destroy();
+              }
+            } catch (e) {
+              console.warn('Error cleaning up previous output:', e);
+            }
+            currentOutput = null;
+          }
+
+          // Create new output with selected instrument
           const midiJson = {
             division: 480,
             tracks: [[{
@@ -497,16 +712,6 @@
               }
             }]]
           };
-
-          if (currentOutput) {
-            try {
-              if (typeof currentOutput.destroy === 'function') {
-                await currentOutput.destroy();
-              }
-            } catch (e) {
-              console.warn('Error cleaning up previous output:', e);
-            }
-          }
 
           currentOutput = new SoundFontOutput(midiJson);
           await currentOutput.initialize();
@@ -521,457 +726,506 @@
           throw e;
         } finally {
           isLoadingSoundFont = false;
+          setInstrumentSelectorLoading(false);  // Hide loading state on selector
         }
       }
 
-      // Function to clear any existing intervals
+      // Add state tracking
+      let activeIntervals = new Map();
+      let currentWorker = null;
+      let workerInterval = null;
+      let isCleaningUp = false;
+
+      // Function to safely clear interval and worker
       function clearPlaybackInterval() {
-        if (playbackInterval) {
-          clearInterval(playbackInterval);
-          playbackInterval = null;
-          console.log('[clearPlaybackInterval] Cleared existing interval');
-        }
-      }
-
-      // Function to handle playing music
-      async function playMusic() {
-        console.log('[playMusic] Called. Current state:', currentPlayer?.state);
-        if (!currentPlayer || (isProcessing && !isLoadingSoundFont)) {
-          console.log('[playMusic] Aborted (no player or processing).');
-          return;
-        }
-
         try {
-          // Set button states before playing
-          playBtn.disabled = true;
-          pauseBtn.disabled = false;
-          rewindBtn.disabled = false;
-          console.log('[playMusic] Setting button state: Play disabled, Pause enabled, Rewind enabled');
-
-          // Initialize audio context if needed
-          if (!audioContext) {
-            isProcessing = true;
-            setButtonLoading(playBtn, true);
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            await audioContext.resume();
-            isProcessing = false;
-            setButtonLoading(playBtn, false);
+          // Clear the actual interval if it exists
+          if (workerInterval) {
+            clearInterval(workerInterval);
+            workerInterval = null;
           }
 
-          // Initialize SoundFont only if not loaded
-          if (!soundFontLoaded && currentInstrumentId !== null) {
-            isProcessing = true;
-            setButtonLoading(playBtn, true);
-            await initializeSoundFont(currentInstrumentId);
-            isProcessing = false;
-            setButtonLoading(playBtn, false);
-          }
-
-          // Clear any existing intervals before starting playback
-          clearPlaybackInterval();
-
-          // Resume from current position if paused, otherwise start from beginning
-          if (currentPlayer.state === 2) {
-            console.log('[playMusic] Resuming from paused state');
-            if (audioContext.state === 'suspended') {
-              await audioContext.resume();
-            }
-            await currentPlayer.play();
-          } else {
-            console.log('[playMusic] Starting playback');
-            await currentPlayer.play();
-          }
-
-          // Set up interval for playback monitoring
-          playbackInterval = setInterval(() => {
-            if (currentPlayer && currentPlayer.state === 1) {
-              // Check if we've reached the end of playback
-              if (currentPlayer.currentTime >= currentPlayer.duration) {
-                clearPlaybackInterval();
-                currentPlayer.stop();
-                playBtn.disabled = false;
-                pauseBtn.disabled = true;
-                rewindBtn.disabled = false;
-                console.log('[playMusic] Playback completed');
-              }
-            }
-          }, 100);  // Check every 100ms
-          
-          console.log('[playMusic] Play/Resume successful. New state:', currentPlayer?.state);
-        } catch (error) {
-          console.error('Error playing music:', error);
-          clearPlaybackInterval();
-          // Reset to default state on error
-          playBtn.disabled = false;
-          pauseBtn.disabled = true;
-          rewindBtn.disabled = false;
-          console.log('[playMusic] Error. Reset to default button state');
-        }
-      }
-
-      // Function to handle pausing music
-      async function pauseMusic() {
-        console.log('[pauseMusic] Called. Current state:', currentPlayer?.state);
-        if (!currentPlayer) {
-          console.log('[pauseMusic] Aborted (no player).');
-          return;
-        }
-
-        // Allow pause during playback
-        if (currentPlayer.state !== 1) {
-          console.log('[pauseMusic] Aborted (not playing).');
-          return;
-        }
-
-        try {
-          setButtonLoading(pauseBtn, true);
-          clearPlaybackInterval();  // Clear interval before pausing
-
-          // Set button states before pausing
-          playBtn.disabled = false;
-          pauseBtn.disabled = true;
-          rewindBtn.disabled = false;
-          console.log('[pauseMusic] Setting button state: Play enabled, Pause disabled, Rewind enabled');
-
-          await currentPlayer.pause();
-          if (audioContext) {
-            await audioContext.suspend();
-          }
-          console.log('[pauseMusic] Pause successful. New state:', currentPlayer?.state);
-        } catch (error) {
-          console.error('Error pausing music:', error);
-          // Reset buttons based on current player state
-          const isPlaying = currentPlayer.state === 1;
-          playBtn.disabled = isPlaying;
-          pauseBtn.disabled = !isPlaying;
-          rewindBtn.disabled = false;
-          console.log('[pauseMusic] Error. Reset buttons based on player state:', isPlaying ? 'playing' : 'paused');
-        } finally {
-          setButtonLoading(pauseBtn, false);
-        }
-      }
-
-      // Rewind function
-      async function rewind() {
-        console.log('[rewind] Called. Current state:', currentPlayer?.state);
-        if (!currentPlayer) {
-          console.log('[rewind] Aborted (no player).');
-          return;
-        }
-
-        try {
-          setButtonLoading(rewindBtn, true);
-          const wasPlaying = currentPlayer.state === 1;
-          
-          // Clear interval before any state changes
-          clearPlaybackInterval();
-
-          // If playing or paused, stop first
-          if (currentPlayer.state !== 0) {
-            console.log('[rewind] Stopping before rewind');
+          // Stop and cleanup the worker
+          if (currentWorker) {
             try {
-              await currentPlayer.stop();
+              currentWorker.postMessage({ type: 'stop' });
+              currentWorker.terminate();
             } catch (e) {
-              console.warn('[rewind] Error stopping player:', e);
+              console.warn('[clearPlaybackInterval] Error terminating worker:', e);
             }
-            if (audioContext) {
-              await audioContext.suspend();
-            }
+            currentWorker = null;
           }
 
-          // Set button states before rewinding
-          playBtn.disabled = false;
-          pauseBtn.disabled = true;
-          rewindBtn.disabled = false;
-          console.log('[rewind] Setting button state: Play enabled, Pause disabled, Rewind enabled');
-
-          try {
-            await currentPlayer.rewind();
-            console.log('[rewind] Rewind successful. New state:', currentPlayer?.state);
-          } catch (e) {
-            console.warn('[rewind] Error during rewind:', e);
-            // Even if rewind fails, try to reset to beginning
-            if (typeof currentPlayer.seek === 'function') {
-              await currentPlayer.seek(0);
-            }
-          }
-
-          // If it was playing before, resume playing after a short delay
-          if (wasPlaying) {
-            console.log('[rewind] Resuming playback after rewind');
-            setTimeout(async () => {
-              try {
-                await playMusic();
-              } catch (e) {
-                console.error('[rewind] Error resuming playback:', e);
-              }
-            }, 100);
-          }
-        } catch (error) {
-          console.error('Error rewinding:', error);
-          // Reset buttons based on current player state
-          const isPlaying = currentPlayer.state === 1;
-          playBtn.disabled = isPlaying;
-          pauseBtn.disabled = !isPlaying;
-          rewindBtn.disabled = false;
-          console.log('[rewind] Error. Reset buttons based on player state:', isPlaying ? 'playing' : 'paused');
-        } finally {
-          setButtonLoading(rewindBtn, false);
+          // Clear tracking
+          activeIntervals.clear();
+          playbackInterval = null;
+          
+          console.log('[clearPlaybackInterval] Cleared interval and worker');
+        } catch (e) {
+          console.warn('[clearPlaybackInterval] Error during cleanup:', e);
         }
       }
 
+      // Enhanced cleanup function
+      async function cleanupPlayer() {
+        if (isCleaningUp) return;
+        isCleaningUp = true;
+        
+        try {
+          clearPlaybackInterval();
+
+          if (currentPlayer) {
+            try {
+              // First try to pause any ongoing playback
+              if (typeof currentPlayer.pause === 'function') {
+                await currentPlayer.pause();
+              }
+
+              // Clear the sheet container before destroying the player
+              const container = document.getElementById('sheet-container');
+              if (container) {
+                container.innerHTML = '';
+              }
+
+              // Then try to destroy the player
+              if (typeof currentPlayer.destroy === 'function') {
+                await currentPlayer.destroy();
+              }
+            } catch (e) {
+              console.warn('[cleanupPlayer] Error cleaning up player:', e);
+            }
+            currentPlayer = null;
+          }
+
+          // Clean up audio context if needed
+          if (audioContext && audioContext.state === 'running') {
+            try {
+              await audioContext.suspend();
+            } catch (e) {
+              console.warn('[cleanupPlayer] Error suspending audio context:', e);
+            }
+          }
+
+          // Clean up output if available
+          if (currentOutput) {
+            try {
+              if (typeof currentOutput.stopAllSounds === 'function') {
+                await currentOutput.stopAllSounds();
+              }
+              if (typeof currentOutput.reset === 'function') {
+                await currentOutput.reset();
+              }
+              if (typeof currentOutput.destroy === 'function') {
+                await currentOutput.destroy();
+              }
+            } catch (e) {
+              console.warn('[cleanupPlayer] Error cleaning up output:', e);
+            }
+            currentOutput = null;
+          }
+        } finally {
+          isCleaningUp = false;
+        }
+      }
+
+      // Function to safely handle player state changes
+      async function safePlayerStateChange(action) {
+        if (!currentPlayer) return false;
+        
+        try {
+          if (typeof currentPlayer[action] === 'function') {
+            await currentPlayer[action]();
+            return true;
+          } else {
+            console.warn(`[safePlayerStateChange] ${action} is not a function`);
+            // Fallback behaviors for missing methods
+            if (action === 'stop') {
+              if (typeof currentPlayer.pause === 'function') {
+                await currentPlayer.pause();
+                if (typeof currentPlayer.seek === 'function') {
+                  await currentPlayer.seek(0);
+                }
+                return true;
+              }
+            }
+            return false;
+          }
+        } catch (e) {
+          console.warn(`[safePlayerStateChange] Error during ${action}:`, e);
+          return false;
+        }
+      }
+
+      // Function to safely initialize audio context
+      async function initializeAudioContext() {
+        try {
+          if (!audioContext || audioContext.state === 'closed') {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          }
+          return true;
+        } catch (e) {
+          console.error('Error initializing audio context:', e);
+          loadingOverlay.updateMessage('Error initializing audio. Please reload the page.');
+          return false;
+        }
+      }
+
+      // Enhanced createNewPlayer with better instrument handling
       async function createNewPlayer(musicXmlData, selectedInstrumentId = null) {
-        // Clear any existing intervals when creating a new player
-        clearPlaybackInterval();
+        loadingOverlay.show('Initializing player...');
         
         if (!musicXmlData) {
+          loadingOverlay.hide();
           throw new Error('No MusicXML data provided');
         }
 
         currentMusicXml = musicXmlData;
         
         try {
-          // Clear the sheet container
-          document.getElementById('sheet-container').innerHTML = '';
+          loadingOverlay.setProgress(20);
+          loadingOverlay.updateMessage('Clearing previous state...');
+          
+          // Clean up previous state
+          await cleanupPlayer();
 
-          // Reset button states for new player (default state)
-          console.log('[createNewPlayer] Setting initial button state: Play enabled, Pause disabled, Rewind enabled');
-          playBtn.disabled = false;
-          pauseBtn.disabled = true;
-          rewindBtn.disabled = false;
-
-          // Stop current player if exists
-          if (currentPlayer) {
-            try {
-              await currentPlayer.pause();
-              await currentPlayer.rewind();
-              if (typeof currentPlayer.destroy === 'function') {
-                await currentPlayer.destroy();
-              }
-            } catch (e) {
-              console.warn('Error cleaning up previous player:', e);
+          // Only initialize audio context if we have a selected instrument
+          // This allows loading the score without starting audio
+          if (selectedInstrumentId) {
+            loadingOverlay.setProgress(40);
+            loadingOverlay.updateMessage('Initializing audio...');
+            
+            // Initialize audio context
+            const audioContextReady = await initializeAudioContext();
+            if (!audioContextReady) {
+              throw new Error('Failed to initialize audio context');
             }
-            currentPlayer = null;
+
+            // Initialize SoundFont if instrument is selected
+            loadingOverlay.updateMessage('Loading instrument sounds...');
+            await initializeSoundFont(selectedInstrumentId, true);
           }
 
-          // Clean up audio context only if we're changing instruments
-          if (selectedInstrumentId !== currentInstrumentId) {
-            if (audioContext) {
-              await audioContext.close();
-              audioContext = null;
-            }
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-          }
-
+          loadingOverlay.setProgress(80);
+          loadingOverlay.updateMessage('Creating player...');
+          
           // Create player with current output
           const player = await Player.create({
             container: 'sheet-container',
             musicXml: musicXmlData,
             renderer: new VerovioRenderer(),
             converter: new VerovioConverter(),
-            output: currentOutput
+            output: currentOutput,
+            audioContext: audioContext
           });
 
           currentPlayer = player;
 
-          // Apply settings
-          try {
-            const tempo = tempoControl.value;
-            const semitones = parseInt(pitchControl.value);
-            const frequency = parseInt(frequencyControl.value);
+          // Only apply audio settings if we have an instrument selected
+          if (selectedInstrumentId) {
+            loadingOverlay.setProgress(90);
+            loadingOverlay.updateMessage('Applying settings...');
             
-            if (havePitchSettingsChanged(semitones, frequency)) {
-              const combinedPitch = Math.pow(2, (semitones + (frequency - 440) / 12) / 12);
-              currentPlayer.pitch = combinedPitch;
-              currentPitchSettings.semitones = semitones;
-              currentPitchSettings.frequency = frequency;
+            try {
+              const tempo = tempoControl.value;
+              const semitones = parseInt(pitchControl.value);
+              const frequency = parseInt(frequencyControl.value);
+              
+              if (havePitchSettingsChanged(semitones, frequency)) {
+                const combinedPitch = Math.pow(2, (semitones + (frequency - 440) / 12) / 12);
+                currentPlayer.pitch = combinedPitch;
+                currentPitchSettings.semitones = semitones;
+                currentPitchSettings.frequency = frequency;
+              }
+              
+              currentPlayer.tempo = parseFloat(tempo) / 120;
+            } catch (e) {
+              console.warn('Error applying settings:', e);
             }
-            
-            currentPlayer.tempo = tempo / 120;
-          } catch (e) {
-            console.warn('Error applying settings:', e);
           }
+
+          loadingOverlay.setProgress(100);
+          loadingOverlay.updateMessage('Ready!');
+          setTimeout(() => loadingOverlay.hide(), 500);
           
           return player;
         } catch (error) {
           console.error('Error creating player:', error);
+          loadingOverlay.updateMessage(`Error: ${error.message}`);
+          setTimeout(() => loadingOverlay.hide(), 2000);
+          
           const feedback = document.getElementById('feedback');
           if (feedback) {
             feedback.className = 'error';
             feedback.textContent = `Error: ${error.message || 'Failed to create player'}`;
           }
-          console.log('[createNewPlayer] Error. Setting default button state: Play enabled, Pause disabled, Rewind enabled');
+          
+          // Clean up on error
+          await cleanupPlayer();
+          
+          // Reset to default state
           playBtn.disabled = false;
           pauseBtn.disabled = true;
           rewindBtn.disabled = false;
+          
           throw error;
         }
       }
 
-      // Update the file validation function
-      function isValidMusicXMLFile(file) {
-        const validExtensions = ['.musicxml', '.mxl'];
-        const fileName = file.name.toLowerCase();
-        return validExtensions.some(ext => fileName.endsWith(ext));
-      }
+      // Function to handle file selection
+      async function handleFileSelect(e) {
+        const file = e.target.files[0];
+        if (!file) return;
 
-      // Function to validate MusicXML content
-      function validateMusicXMLContent(content) {
+        const feedback = document.getElementById('feedback');
+        feedback.textContent = 'Processing file...';
+        feedback.className = '';
+
         try {
-          // Parse the XML content
-          const parser = new DOMParser();
-          const xmlDoc = parser.parseFromString(content, 'text/xml');
-
-          // Check for parsing errors
-          const parseError = xmlDoc.getElementsByTagName('parsererror');
-          if (parseError.length > 0) {
-            throw new Error('Invalid XML format');
-          }
-
-          // Check for MusicXML elements (more flexible validation)
-          const isScorePartwise = xmlDoc.getElementsByTagName('score-partwise').length > 0;
-          const isScoreTimewise = xmlDoc.getElementsByTagName('score-timewise').length > 0;
-          const hasPart = xmlDoc.getElementsByTagName('part').length > 0;
-          const hasPartList = xmlDoc.getElementsByTagName('part-list').length > 0;
-          const hasMeasure = xmlDoc.getElementsByTagName('measure').length > 0;
-
-          // Accept if it has basic MusicXML structure
-          if ((isScorePartwise || isScoreTimewise) && (hasPart || hasPartList || hasMeasure)) {
-            return true;
-          }
-
-          throw new Error('File does not contain valid MusicXML content');
-        } catch (error) {
-          console.error('XML validation error:', error);
-          throw new Error(`Invalid MusicXML content: ${error.message}`);
-        }
-      }
-
-      // Function to handle compressed MusicXML (.mxl) files
-      async function handleCompressedMusicXML(file) {
-        try {
-          const arrayBuffer = await file.arrayBuffer();
-          const zip = await JSZip.loadAsync(arrayBuffer);
+          const buffer = await file.arrayBuffer();
           
-          // Find the main MusicXML file (usually container.xml first, then first .xml file)
-          let xmlContent = null;
-          let mainXmlFile = null;
+          // Check if it's an MXL file (ZIP format)
+          const isZip = file.name.toLowerCase().endsWith('.mxl') || 
+                       (new Uint8Array(buffer.slice(0, 2)).toString() === '80,75'); // PK header
 
-          // First try to read container.xml
-          try {
-            const containerXml = await zip.file("META-INF/container.xml")?.async("string");
-            if (containerXml) {
-              const parser = new DOMParser();
-              const containerDoc = parser.parseFromString(containerXml, "text/xml");
-              const rootfile = containerDoc.querySelector("rootfile");
-              if (rootfile) {
-                const fullPath = rootfile.getAttribute("full-path");
-                if (fullPath) {
-                  mainXmlFile = zip.file(fullPath);
+          let musicXmlText;
+          if (isZip) {
+            console.log('Detected MXL (compressed MusicXML) format');
+            feedback.textContent = 'Extracting compressed MusicXML...';
+            
+            try {
+              console.log('Starting MXL extraction...');
+              // Use the global unzipit function
+              const { entries } = await window.unzipit.unzip(buffer);
+              console.log('Available files in MXL:', Object.keys(entries));
+              
+              // First try to find the rootfile from container.xml
+              let rootFile;
+              if (entries['META-INF/container.xml']) {
+                console.log('Found container.xml, parsing...');
+                const containerXml = await entries['META-INF/container.xml'].text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(containerXml, 'text/xml');
+                rootFile = doc.querySelector('rootfile')?.getAttribute('full-path');
+                console.log('Root file path from container.xml:', rootFile);
+              }
+              
+              // If we found the rootfile, use it, otherwise try to find any .xml file
+              if (rootFile && entries[rootFile]) {
+                console.log('Loading MusicXML from root file:', rootFile);
+                musicXmlText = await entries[rootFile].text();
+              } else {
+                // Look for any .xml file in the archive
+                const xmlFiles = Object.keys(entries).filter(name => name.toLowerCase().endsWith('.xml'));
+                if (xmlFiles.length > 0) {
+                  console.log('Using first XML file:', xmlFiles[0]);
+                  musicXmlText = await entries[xmlFiles[0]].text();
+                } else {
+                  throw new Error('No MusicXML file found in the MXL archive');
                 }
               }
+
+              if (!musicXmlText || !musicXmlText.trim()) {
+                throw new Error('Extracted MusicXML is empty');
+              }
+              console.log('Successfully extracted MusicXML content');
+              
+            } catch (error) {
+              console.error('MXL extraction error:', error);
+              throw new Error(`Failed to extract MXL file: ${error.message}`);
             }
-          } catch (e) {
-            console.warn("No container.xml found or error reading it:", e);
-          }
-
-          // If no main file found through container.xml, find first .xml file
-          if (!mainXmlFile) {
-            mainXmlFile = Object.values(zip.files).find(file => 
-              !file.dir && (file.name.endsWith('.xml') || file.name.endsWith('.musicxml'))
-            );
-          }
-
-          if (!mainXmlFile) {
-            throw new Error("No MusicXML file found in the compressed archive");
-          }
-
-          xmlContent = await mainXmlFile.async("string");
-          return xmlContent;
-        } catch (error) {
-          console.error("Error processing compressed MusicXML:", error);
-          throw new Error(`Failed to process compressed MusicXML: ${error.message}`);
-        }
-      }
-
-      // Update the file loading function
-      async function loadFile(file) {
-        const feedback = document.getElementById('feedback');
-        feedback.className = 'loading';
-        feedback.textContent = 'Loading file...';
-
-        try {
-          if (!file) {
-            throw new Error('No file provided');
-          }
-
-          if (!isValidMusicXMLFile(file)) {
-            throw new Error('Invalid file type. Please select a .musicxml or .mxl file');
-          }
-
-          let content;
-          if (file.name.toLowerCase().endsWith('.mxl')) {
-            feedback.textContent = 'Decompressing MusicXML file...';
-            content = await handleCompressedMusicXML(file);
           } else {
-            content = await file.text();
+            // Try to parse as regular MusicXML
+            try {
+              musicXmlText = new TextDecoder().decode(buffer);
+              const parser = new DOMParser();
+              const doc = parser.parseFromString(musicXmlText, 'text/xml');
+              if (doc.querySelector('parsererror')) {
+                throw new Error('Invalid XML format');
+              }
+            } catch (error) {
+              throw new Error(`Invalid MusicXML format: ${error.message}`);
+            }
           }
-          
-          // Validate the content
-          validateMusicXMLContent(content);
 
-          // If validation passes, create the player
-          feedback.textContent = 'Creating player...';
-          await createNewPlayer(content);
+          // Create player with default output
+          await createNewPlayer(musicXmlText);
+          
           feedback.className = 'success';
-          feedback.textContent = 'File loaded successfully!';
+          feedback.textContent = 'Score loaded successfully! Ready to play.';
+
         } catch (error) {
-          console.error('File loading error:', error);
+          console.error('File processing error:', error);
           feedback.className = 'error';
-          feedback.textContent = `Error: ${error.message || 'Failed to load the file'}`;
-          // Ensure buttons are in default state even on error
-          console.log('[loadFile] Error. Setting default button state: Play enabled, Pause disabled, Rewind enabled');
-          playBtn.disabled = false;
-          pauseBtn.disabled = true;
-          rewindBtn.disabled = false;
+          feedback.textContent = `Error: ${error.message}`;
+          currentMusicXml = null;
         }
+
+        // Reset file input
+        e.target.value = '';
       }
 
-      // Event listener for file input change
-      document.getElementById('file-input').addEventListener('change', (event) => {
-        const file = event.target.files[0];
-        if (file) {
-          loadFile(file);
-        }
-      });
+      // Function to handle PDF uploads and conversion
+      async function convertPdfToMusicXml(pdfFile) {
+        const feedback = document.getElementById('pdf-feedback');
+        const basicBtn = document.getElementById('convert-basic-btn');
 
-      // Update sample loading with the same validation
+        if (!pdfFile) {
+          feedback.className = 'error';
+          feedback.textContent = 'Please select a PDF or image file first.';
+          return;
+        }
+
+        // Basic Conversion Call
+        basicBtn.onclick = async () => {
+          const formData = new FormData();
+          formData.append('file', pdfFile);
+          formData.append('filename', pdfFile.name);
+          formData.append('filetype', pdfFile.type);
+
+          feedback.className = 'loading';
+          feedback.innerHTML = '<span class="spinner"></span> Converting PDF to MusicXML...';
+          basicBtn.disabled = true;
+
+          try {
+            // First validate the file
+            if (!pdfFile.type.includes('pdf') && !pdfFile.type.includes('image')) {
+              throw new Error('Please upload a PDF or image file.');
+            }
+
+            // Make the API call to convert
+            const response = await fetch('http://localhost:8000/convert', {
+              method: 'POST',
+              body: formData,
+              headers: {
+                'Accept': 'application/xml, application/x-zip'
+              }
+            });
+
+            if (!response.ok) {
+              let errorMsg = `Conversion failed! Status: ${response.status}`;
+              try {
+                const errData = await response.json();
+                errorMsg = errData.detail || errorMsg;
+              } catch (e) {
+                console.warn('Error parsing error response:', e);
+              }
+              throw new Error(errorMsg);
+            }
+
+            const contentType = response.headers.get('Content-Type');
+            const blob = await response.blob();
+            
+            let musicXmlText = '';
+
+            // Handle different response types
+            if (contentType?.includes('zip') || contentType?.includes('mxl') || 
+                (blob.size > 0 && (await blob.slice(0, 2).text()) === 'PK')) {
+              console.log('Processing MXL/ZIP response...');
+              
+              try {
+                const { entries } = await window.unzipit.unzip(blob);
+                console.log('ZIP entries:', Object.keys(entries));
+
+                // Try to find the main MusicXML file
+                let musicXmlEntry;
+
+                // First check container.xml if it exists
+                if (entries['META-INF/container.xml']) {
+                  const containerText = await entries['META-INF/container.xml'].text();
+                  const parser = new DOMParser();
+                  const containerDoc = parser.parseFromString(containerText, 'application/xml');
+                  const rootfilePath = containerDoc.querySelector('rootfile')?.getAttribute('full-path');
+                  
+                  if (rootfilePath && entries[rootfilePath]) {
+                    musicXmlEntry = entries[rootfilePath];
+                  }
+                }
+
+                // Fallback: look for any .musicxml or .xml file
+                if (!musicXmlEntry) {
+                  musicXmlEntry = Object.values(entries).find(entry => 
+                    entry.name.endsWith('.musicxml') || entry.name.endsWith('.xml')
+                  );
+                }
+
+                if (!musicXmlEntry) {
+                  throw new Error('No MusicXML file found in the converted package');
+                }
+
+                musicXmlText = await musicXmlEntry.text();
+                console.log('Successfully extracted MusicXML from package');
+
+              } catch (zipError) {
+                console.error('Error processing MXL/ZIP:', zipError);
+                throw new Error(`Failed to process converted file: ${zipError.message}`);
+              }
+            } else {
+              // Assume direct MusicXML response
+              musicXmlText = await blob.text();
+            }
+
+            // Validate the MusicXML
+            if (!musicXmlText.trim().startsWith('<?xml') || !musicXmlText.includes('<score-partwise')) {
+              throw new Error('Invalid MusicXML received from conversion');
+            }
+
+            feedback.textContent = 'Conversion successful! Loading score...';
+            
+            // Get current instrument selection
+            const instrumentSelector = document.getElementById('instrumentSelector');
+            const selectedInstrumentId = instrumentSelector.value;
+            
+            // Create new player with the converted MusicXML and selected instrument
+            await createNewPlayer(musicXmlText, selectedInstrumentId || null);
+            
+            feedback.className = 'success';
+            feedback.textContent = 'PDF successfully converted and loaded!';
+
+          } catch (error) {
+            console.error('PDF conversion error:', error);
+            feedback.className = 'error';
+            feedback.textContent = `Conversion failed: ${error.message}`;
+          } finally {
+            basicBtn.disabled = false;
+          }
+        };
+      }
+
+      // Function to clear all feedback messages
+      function clearAllFeedback() {
+        const feedbacks = ['feedback', 'pdf-feedback'];
+        feedbacks.forEach(id => {
+          const element = document.getElementById(id);
+          if (element) {
+            element.textContent = '';
+            element.className = '';
+          }
+        });
+      }
+
+      // Update sample selector handler
       document.getElementById('samples').addEventListener('change', async (event) => {
         const sample = event.target.value;
         if (sample) {
+          clearAllFeedback(); // Clear previous messages
           const feedback = document.getElementById('feedback');
           feedback.className = 'loading';
           feedback.textContent = 'Loading sample...';
           
           try {
             const response = await fetch(sample);
-            if (!response.ok) {
-              throw new Error(`Failed to load sample: ${response.statusText}`);
-            }
             const content = await response.text();
-            
-            // Validate the content
-            validateMusicXMLContent(content);
-            
             await createNewPlayer(content);
+            
             feedback.className = 'success';
-            feedback.textContent = 'Sample loaded successfully!';
+            feedback.textContent = 'Sample score loaded successfully!';
+            
+            // Clear any PDF upload state
+            document.getElementById('pdf-input').value = '';
           } catch (error) {
             console.error('Error loading sample:', error);
             feedback.className = 'error';
-            feedback.textContent = `Error loading sample: ${error.message}`;
-            // Ensure buttons are in default state on sample load error
-            console.log('[samples.onChange] Error. Setting default button state.');
+            feedback.textContent = 'Error loading sample score.';
             playBtn.disabled = false;
             pauseBtn.disabled = true;
             rewindBtn.disabled = false;
@@ -979,32 +1233,76 @@
         }
       });
 
+      // Update file input handler
+      document.getElementById('file-input').addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (file) {
+          clearAllFeedback(); // Clear previous messages
+          handleFileSelect(event);
+          // Clear PDF input and sample selector
+          document.getElementById('pdf-input').value = '';
+          document.getElementById('samples').value = '';
+        }
+      });
+
+      // Update PDF file input handler
+      document.getElementById('pdf-input').addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        const feedback = document.getElementById('pdf-feedback');
+        const basicBtn = document.getElementById('convert-basic-btn');
+
+        clearAllFeedback(); // Clear previous messages
+
+        if (file) {
+          // Validate file type
+          if (!file.type.includes('pdf') && !file.type.includes('image')) {
+            feedback.className = 'error';
+            feedback.textContent = 'Please select a PDF or image file of sheet music.';
+            basicBtn.disabled = true;
+            return;
+          }
+
+          feedback.className = 'info';
+          feedback.textContent = `Selected: ${file.name}`;
+          convertPdfToMusicXml(file);
+          basicBtn.disabled = false;
+
+          // Clear other inputs
+          document.getElementById('file-input').value = '';
+          document.getElementById('samples').value = '';
+        } else {
+          feedback.textContent = '';
+          basicBtn.disabled = true;
+          convertPdfToMusicXml(null);
+        }
+      });
+
       // Update default sample loading
       async function loadDefaultSample() {
-        const feedback = document.getElementById('feedback');
         try {
           const response = await fetch('data/asa-branca.musicxml');
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
           const content = await response.text();
+          
+          // Create player without initializing audio context
           await createNewPlayer(content);
           
+          const feedback = document.getElementById('feedback');
           feedback.className = 'success';
-          feedback.textContent = 'Default sample loaded successfully!';
+          feedback.textContent = 'Default score loaded successfully! Click play to start.';
+          
+          // Update the samples dropdown to show the current selection
+          const samplesSelect = document.getElementById('samples');
+          samplesSelect.value = 'data/asa-branca.musicxml';
         } catch (error) {
           console.error('Error loading default sample:', error);
+          const feedback = document.getElementById('feedback');
           feedback.className = 'error';
-          feedback.textContent = 'Error loading default sample. Please try uploading your own file.';
-          // Set initial button state even on error
-          console.log('[loadDefaultSample] Error. Setting default button state.');
-          playBtn.disabled = false;
-          pauseBtn.disabled = true;
-          rewindBtn.disabled = false;
+          feedback.textContent = 'Error loading default score. Please try uploading your own file.';
+          currentMusicXml = null;
         }
       }
 
-      // Load default sample
+      // Load default sample without creating player
       loadDefaultSample();
 
       // Set up control button event listeners
@@ -1012,12 +1310,357 @@
       pauseBtn.addEventListener('click', pauseMusic);
       rewindBtn.addEventListener('click', rewind);
 
-      // Initial button state is set within createNewPlayer/loadDefaultSample
-      // but we can set it here explicitly for absolute certainty on page load
+      // Initial button state
       console.log('Initial page load: Setting default button state.');
       playBtn.disabled = false;
       pauseBtn.disabled = true;
       rewindBtn.disabled = false;
+
+      // Function to set up playback interval
+      function setPlaybackInterval(callback, delay) {
+        clearPlaybackInterval(); // Clean up existing interval and worker
+        
+        try {
+          // Create a simple interval
+          workerInterval = setInterval(() => {
+            try {
+              callback();
+            } catch (error) {
+              console.warn('[playbackInterval] Error in interval callback:', error);
+              clearPlaybackInterval();
+            }
+          }, delay);
+          
+          // Use a simple number for interval tracking
+          const intervalId = Date.now();
+          activeIntervals.set(intervalId, true);
+          playbackInterval = intervalId;
+          
+          return intervalId;
+        } catch (e) {
+          console.warn('[setPlaybackInterval] Error setting up interval:', e);
+          clearPlaybackInterval();
+          return null;
+        }
+      }
+
+      // Update playMusic function
+      async function playMusic() {
+        console.log('[playMusic] Called. Current state:', currentPlayer?.state);
+        
+        try {
+          setButtonLoading(playBtn, true);
+
+          // Initialize audio context if needed - this is now safe because it's triggered by a user gesture
+          if (!audioContext || audioContext.state === 'closed') {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          }
+
+          // Resume audio context if suspended
+          if (audioContext.state === 'suspended') {
+            await audioContext.resume();
+          }
+
+          // If we have currentMusicXml but no player, create one
+          if (currentMusicXml && !currentPlayer) {
+            // Get current instrument selection
+            const instrumentSelector = document.getElementById('instrumentSelector');
+            const selectedInstrumentId = instrumentSelector.value || '0'; // Default to piano if none selected
+            
+            // Initialize SoundFont and create player
+            await initializeSoundFont(selectedInstrumentId, true);
+            await createNewPlayer(currentMusicXml, selectedInstrumentId);
+          }
+
+          if (!currentPlayer || (isProcessing && !isLoadingSoundFont)) {
+            console.log('[playMusic] Aborted (no player or processing).');
+            return;
+          }
+
+          clearPlaybackInterval();
+
+          // Stop any current sounds and clear audio buffers
+          if (currentOutput) {
+            try {
+              if (typeof currentOutput.stopAllSounds === 'function') {
+                await currentOutput.stopAllSounds();
+              }
+              if (typeof currentOutput.clear === 'function') {
+                await currentOutput.clear();
+              }
+            } catch (e) {
+              console.warn('[playMusic] Error clearing audio:', e);
+            }
+          }
+
+          playBtn.disabled = true;
+          pauseBtn.disabled = false;
+          rewindBtn.disabled = false;
+
+          // Small delay to ensure audio buffers are cleared
+          await new Promise(resolve => setTimeout(resolve, 50));
+
+          if (currentPlayer.state === 2) {
+            console.log('[playMusic] Resuming from paused state');
+            await safePlayerStateChange('play');
+          } else {
+            console.log('[playMusic] Starting playback');
+            if (typeof currentPlayer.seek === 'function') {
+              await currentPlayer.seek(0);
+            }
+            await safePlayerStateChange('play');
+          }
+
+          // Set up interval with improved error handling
+          setPlaybackInterval(() => {
+            if (currentPlayer && currentPlayer.state === 1) {
+              if (currentPlayer.currentTime >= currentPlayer.duration) {
+                clearPlaybackInterval();
+                safePlayerStateChange('stop');
+                playBtn.disabled = false;
+                pauseBtn.disabled = true;
+                rewindBtn.disabled = false;
+                console.log('[playMusic] Playback completed');
+              }
+            }
+          }, 100);
+          
+          console.log('[playMusic] Play/Resume successful. New state:', currentPlayer?.state);
+        } catch (error) {
+          console.error('Error playing music:', error);
+          clearPlaybackInterval();
+          playBtn.disabled = false;
+          pauseBtn.disabled = true;
+          rewindBtn.disabled = false;
+        } finally {
+          setButtonLoading(playBtn, false);
+        }
+      }
+
+      // Update pauseMusic function
+      async function pauseMusic() {
+        console.log('[pauseMusic] Called. Current state:', currentPlayer?.state);
+        if (!currentPlayer || currentPlayer.state !== 1) {
+          console.log('[pauseMusic] Aborted (no player or not playing).');
+          return;
+        }
+
+        try {
+          setButtonLoading(pauseBtn, true);
+          clearPlaybackInterval();
+
+          playBtn.disabled = false;
+          pauseBtn.disabled = true;
+          rewindBtn.disabled = false;
+
+          await safePlayerStateChange('pause');
+          console.log('[pauseMusic] Pause successful. New state:', currentPlayer?.state);
+        } catch (error) {
+          console.error('Error pausing music:', error);
+          const isPlaying = currentPlayer.state === 1;
+          playBtn.disabled = isPlaying;
+          pauseBtn.disabled = !isPlaying;
+          rewindBtn.disabled = false;
+        } finally {
+          setButtonLoading(pauseBtn, false);
+        }
+      }
+
+      // Update rewind function
+      async function rewind() {
+        console.log('[rewind] Called. Current state:', currentPlayer?.state);
+        if (!currentPlayer) {
+          console.log('[rewind] Aborted (no player).');
+          return;
+        }
+
+        setButtonLoading(rewindBtn, true);
+        
+        try {
+          // Disable all controls during rewind
+          playBtn.disabled = true;
+          pauseBtn.disabled = true;
+          rewindBtn.disabled = true;
+
+          // Store current state
+          const wasPlaying = currentPlayer.state === 1;
+          
+          // Clear any existing intervals first
+          clearPlaybackInterval();
+
+          // Stop all current sounds and clear audio buffers
+          if (currentOutput) {
+            try {
+              if (typeof currentOutput.stopAllSounds === 'function') {
+                await currentOutput.stopAllSounds();
+              }
+              if (typeof currentOutput.clear === 'function') {
+                await currentOutput.clear();
+              }
+            } catch (e) {
+              console.warn('[rewind] Error clearing audio:', e);
+            }
+          }
+
+          // Call the player's rewind method
+          try {
+            await safePlayerStateChange('rewind');
+            console.log('[rewind] Player rewind successful');
+          } catch (e) {
+            console.warn('[rewind] Error during player rewind:', e);
+            
+            // Fallback manual rewind
+            await safePlayerStateChange('stop');
+            
+            // Clear audio buffers again after stop
+            if (currentOutput) {
+              try {
+                if (typeof currentOutput.stopAllSounds === 'function') {
+                  await currentOutput.stopAllSounds();
+                }
+                if (typeof currentOutput.clear === 'function') {
+                  await currentOutput.clear();
+                }
+              } catch (e) {
+                console.warn('[rewind] Error clearing audio during fallback:', e);
+              }
+            }
+
+            // Small delay to ensure audio buffers are cleared
+            await new Promise(resolve => setTimeout(resolve, 50));
+            
+            if (typeof currentPlayer.seek === 'function') {
+              await currentPlayer.seek(0);
+            }
+            
+            // Reset renderer state
+            const renderer = currentPlayer.renderer;
+            if (renderer) {
+              if (typeof renderer.resetCursor === 'function') {
+                await renderer.resetCursor();
+              }
+              if (typeof renderer.render === 'function') {
+                await renderer.render();
+              }
+              if (typeof renderer.updateCursor === 'function') {
+                await renderer.updateCursor(0);
+              }
+            }
+          }
+
+          // Scroll to beginning
+          const firstSystem = document.querySelector('g.system');
+          if (firstSystem) {
+            firstSystem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+
+          // Reset button states
+          playBtn.disabled = false;
+          pauseBtn.disabled = true;
+          rewindBtn.disabled = false;
+
+          // Small delay before resuming playback if it was playing
+          if (wasPlaying) {
+            await new Promise(resolve => setTimeout(resolve, 50));
+            await playMusic();
+          }
+
+          console.log('[rewind] Rewind completed successfully');
+        } catch (error) {
+          console.error('[rewind] Critical error:', error);
+          
+          // Emergency recovery
+          try {
+            await cleanupPlayer();
+            if (currentMusicXml) {
+              await createNewPlayer(currentMusicXml, currentInstrumentId);
+            }
+          } catch (e) {
+            console.error('[rewind] Recovery failed:', e);
+          }
+          
+          // Reset to safe state
+          playBtn.disabled = false;
+          pauseBtn.disabled = true;
+          rewindBtn.disabled = false;
+        } finally {
+          setButtonLoading(rewindBtn, false);
+        }
+      }
+
+      // Update instrument selection handler
+      document.getElementById('instrumentSelector').addEventListener('change', async (event) => {
+        const selectedInstrumentId = event.target.value;
+        if (!selectedInstrumentId) return; // Skip if no instrument selected
+
+        try {
+          console.log('[instrumentSelector.onChange] Changing instrument to:', selectedInstrumentId);
+          
+          // Show loading states
+          setInstrumentSelectorLoading(true);
+          setButtonLoading(playBtn, true);
+          
+          // Disable all controls during instrument change
+          playBtn.disabled = true;
+          pauseBtn.disabled = true;
+          rewindBtn.disabled = true;
+
+          // Store current playback state
+          const wasPlaying = currentPlayer && currentPlayer.state === 1;
+          const currentTime = currentPlayer ? currentPlayer.currentTime : 0;
+
+          // Clean up current state
+          await cleanupPlayer();
+
+          // Initialize new instrument
+          await initializeSoundFont(selectedInstrumentId, true);
+          
+          // Create new player with stored MusicXML
+          if (currentMusicXml) {
+            const player = await createNewPlayer(currentMusicXml, selectedInstrumentId);
+            
+            // Restore playback position if needed
+            if (currentTime > 0) {
+              await player.seek(currentTime);
+            }
+
+            // Resume playback if it was playing
+            if (wasPlaying) {
+              await playMusic();
+            }
+          }
+          
+          // Reset button states after successful change
+          playBtn.disabled = false;
+          pauseBtn.disabled = true;
+          rewindBtn.disabled = false;
+
+          const feedback = document.getElementById('feedback');
+          feedback.className = 'success';
+          feedback.textContent = 'Instrument changed successfully!';
+        } catch (error) {
+          console.error('Error changing instrument:', error);
+          
+          // Clean up on error
+          await cleanupPlayer();
+          
+          // Reset to default state
+          playBtn.disabled = false;
+          pauseBtn.disabled = true;
+          rewindBtn.disabled = false;
+
+          const feedback = document.getElementById('feedback');
+          feedback.className = 'error';
+          feedback.textContent = `Error changing instrument: ${error.message}`;
+        } finally {
+          // Hide loading states
+          setInstrumentSelectorLoading(false);
+          setButtonLoading(playBtn, false);
+        }
+      });
+
+      // Add tempo, pitch, and frequency control handlers
+      // ... existing code ...
     </script>
   </body>
 </html>
