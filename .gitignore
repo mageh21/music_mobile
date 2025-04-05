@@ -31,3 +31,6 @@ pnpmfile.js
 
 # nyc
 .nyc_output
+
+# Build output
+build/
