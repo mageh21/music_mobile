@@ -10,5 +10,6 @@ export * from './FetchConverter';
 export * from './MmaConverter';
 export * from './VerovioConverter';
 export * from './WebAudioFontOutput';
+export * from './SoundFontOutput';
 export * from './helpers';
 //# sourceMappingURL=index.d.ts.map

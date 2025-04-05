@@ -43,22 +43,6 @@
         margin-bottom: 30px;
       }
 
-      .instrument-selector {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin-bottom: 15px;
-      }
-
-      .instrument-selector select {
-        flex: 1;
-      }
-
-      .instrument-label {
-        min-width: 80px;
-        font-weight: 500;
-      }
-
       .upload-section {
         background: white;
         padding: 20px;
@@ -237,18 +221,12 @@
           <h3>Sample Scores</h3>
           <select id="samples">
             <option value="">-- Choose a sample --</option>
-            <option value="data/asa-branca.musicxml">Asa Branca (Simple)</option>
-            <option value="data/salma-ya-salama.mxl">Salma ya Salama (Complex)</option>
+            <option value="data/asa-branca.musicxml">Asa Branca</option>
+            <option value="data/bach-invention-1.musicxml">Bach Invention No. 1</option>
+            <option value="data/chopin-prelude-20.musicxml">Chopin Prelude No. 20</option>
+            <option value="data/debussy-clair-de-lune.musicxml">Debussy Clair de Lune</option>
           </select>
         </div>
-      </div>
-
-      <div class="upload-section">
-        <h3>Instrument Settings</h3>
-        <div id="instrument-tracks">
-          <!-- Instrument tracks will be added here dynamically -->
-        </div>
-        <button id="add-instrument" style="margin-top: 10px;">Add Instrument</button>
       </div>
 
       <div id="sheet-container"></div>
