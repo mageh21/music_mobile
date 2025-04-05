@@ -165,5 +165,6 @@ export declare class Player implements IMidiOutput {
     protected _play(): Promise<void>;
     protected _handleTimingObjectChange(_event: Event): void;
     protected static _unroll(musicXml: string): Promise<string>;
+    protected _createOutput(): Promise<IMidiOutput>;
 }
 //# sourceMappingURL=Player.d.ts.map

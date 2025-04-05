@@ -14,10 +14,10 @@ import {
 } from './helpers';
 import type { IMidiConverter } from './IMidiConverter';
 import type { ISheetRenderer } from './ISheetRenderer';
-import { WebAudioFontOutput } from './WebAudioFontOutput';
 import { ITimingObject, TimingObject } from 'timing-object';
 import SaxonJS from './saxon-js/SaxonJS3.rt';
 import pkg from '../package.json';
+import { SoundFontOutput } from './SoundFontOutput';
 
 const XSL_UNROLL =
   'https://raw.githubusercontent.com/infojunkie/musicxml-midi/main/build/unroll.sef.json';
@@ -164,7 +164,7 @@ export class Player implements IMidiOutput {
 
     // Set or create the MIDI output.
     this._output =
-      this._options.output ?? new WebAudioFontOutput(this._midiFile);
+      this._options.output ?? new SoundFontOutput(this._midiFile);
 
     // Create the MIDI player.
     // Wrap IMidiPlayer.stop() with a try...catch to call it freely.
@@ -285,8 +285,8 @@ export class Player implements IMidiOutput {
    */
   async play() {
     if (this._midiPlayer.state === PlayerState.Playing) return;
-    if (this._output instanceof WebAudioFontOutput) {
-      await (this._output as WebAudioFontOutput).initialize();
+    if (this._output instanceof SoundFontOutput) {
+      await (this._output as SoundFontOutput).initialize();
     }
     await this._play();
   }
@@ -517,5 +517,10 @@ export class Player implements IMidiOutput {
       console.error(`[Player._unroll] ${error}`);
     }
     return musicXml;
+  }
+
+  protected async _createOutput(): Promise<IMidiOutput> {
+    await this._options.converter.initialize(this._musicXml);
+    return new SoundFontOutput(this._options.converter.midi);
   }
 }
