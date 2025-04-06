@@ -122,12 +122,19 @@ git clone https://github.com/mageh21/music_mobile.git
 cd music_mobile
 ```
 
-3. Serve the files using a web server of your choice (e.g., Python's SimpleHTTPServer):
+3. Install dependencies:
 ```bash
-python -m http.server 8000
+npm install
 ```
 
-4. Open your browser and navigate to `http://localhost:8000/demo/`
+4. Start the development servers:
+```bash
+npx concurrently "npm run demo:develop" "npm run mobile"
+```
+
+This will start two servers:
+- Demo server at http://localhost:8080
+- Mobile server at http://localhost:8081
 
 ## Project Structure
 
