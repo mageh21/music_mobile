@@ -1,29 +1,159 @@
-MusicXML Player
-===============
+# MusicXML Player
 
-[![Build](https://github.com/infojunkie/musicxml-player/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/infojunkie/musicxml-player/actions/workflows/test.yml)
+A web-based MusicXML player with mobile support and PDF conversion capabilities.
 
-A TypeScript component that loads   and plays MusicXML files in the browser using Web Audio and Web MIDI.
+## Features
 
-![Screenshot](https://github.com/infojunkie/musicxml-player/blob/main/screenshot.png?raw=true)
+- MusicXML file playback
+- PDF to MusicXML conversion
+- Mobile-responsive design
+- Multiple instrument support
+- Tempo and pitch control
+- PWA support for offline use
 
-# Getting started
+## Mobile Screen Customization
+
+To customize the mobile screen layout and appearance, you can modify the following CSS variables and media queries in the `demo/index.html` file:
+
+### CSS Variables
+
+```css
+:root {
+  --primary-color: #4a90e2;
+  --secondary-color: #f8f9fa;
+  --text-color: #2c3e50;
+  --border-radius: 8px;
+  --player-height: 120px;
+  --player-height-mobile: 160px;
+}
 ```
-npm install
-npm run build
-npm test
-npm run demo
+
+### Mobile-Specific Styles
+
+The following media queries can be adjusted for different screen sizes:
+
+```css
+@media (max-width: 768px) {
+  body {
+    padding: 10px;
+    padding-bottom: calc(var(--player-height-mobile) + 40px);
+  }
+
+  h1 {
+    font-size: 1.8em !important;
+    margin-bottom: 20px !important;
+  }
+
+  .main-container {
+    padding: 10px;
+  }
+
+  .controls-grid {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+
+  #sheet-container {
+    height: calc(100vh - var(--player-height-mobile) - 180px);
+    padding: 10px;
+    margin: 5px 0;
+  }
+
+  #player {
+    height: var(--player-height-mobile);
+    padding: 8px;
+  }
+}
 ```
-Then open http://127.0.0.1:8080/
-# Theory of operation
-This component synchronizes rendering and playback of MusicXML documents. Rendering is done using existing Web-based music engraving libraries such as [OpenSheetMusicDisplay](https://github.com/opensheetmusicdisplay/opensheetmusicdisplay) or [Verovio](https://github.com/rism-digital/verovio). Playback uses standard MIDI files that are expected to correspond to the given MusicXML, and sends the MIDI events to either a Web MIDI output, or to a Web Audio synthesizer, using the module [`midi-player`](https://github.com/infojunkie/midi-player).
 
-The crucial part of this functionality is to synchronize the measures and beats in the MusicXML file with the events of the MIDI file. In a nutshell, the player expects the provider of the MIDI file (an implementation of `IMidiConverter`) to supply a "timemap", which associates each measure in the MusicXML file to a timestamp at which this measure occurs. In the case of repeats and jumps, the same measure will be referenced several times in the timemap.
+### Landscape Mode
 
-There are 3 bundled implementations of `IMidiConverter` in this module:
-- An API client that connects to the [`musicxml-midi`](https://github.com/infojunkie/musicxml-midi) API server. `musicxml-midi` is a converter whose major contribution is to generate a MIDI accompaniment in addition to the music in the MusicXML score.
-- [Verovio](https://github.com/rism-digital/verovio), that generates a faithful rendition of the MusicXML score but lacks advanced features like microtonal support and accompaniment generation.
-- It is also possible to hand-craft the MIDI and timemap files, and instruct the player to read those explicitly.
+For landscape orientation on mobile devices:
 
-# API usage
-At the moment, the only documentation available for the usage of the player is located in the [demo app](demo/demo.mjs).
+```css
+@media screen and (orientation: landscape) and (max-height: 600px) {
+  #sheet-container {
+    height: calc(100vh - var(--player-height) - 100px);
+  }
+
+  .player-controls {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .playback-controls {
+    flex-direction: row;
+    flex: 1;
+  }
+
+  #instrumentSelector {
+    width: 160px;
+  }
+}
+```
+
+### Music Notation Scaling
+
+To adjust the size of music notation on mobile:
+
+```css
+@media (max-width: 768px) {
+  #sheet-container svg {
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  .system {
+    transform-origin: left top;
+    transform: scale(0.9);
+  }
+}
+```
+
+## Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/mageh21/music_mobile.git
+```
+
+2. Navigate to the project directory:
+```bash
+cd music_mobile
+```
+
+3. Serve the files using a web server of your choice (e.g., Python's SimpleHTTPServer):
+```bash
+python -m http.server 8000
+```
+
+4. Open your browser and navigate to `http://localhost:8000/demo/`
+
+## Project Structure
+
+```
+music_mobile/
+├── demo/
+│   ├── index.html
+│   └── data/
+│       └── (sample music files)
+├── src/
+│   └── mobile/
+│       └── js/
+│           └── (JavaScript files)
+├── build/
+│   └── (compiled files)
+└── README.md
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
