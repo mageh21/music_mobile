@@ -448,9 +448,6 @@ export class Player implements IMidiOutput {
     if (this._output?.clear) {
       this._output.clear();
     }
-    if (this._output?.stopAllSounds) {
-      this._output.stopAllSounds();
-    }
   }
 
   protected async _play() {

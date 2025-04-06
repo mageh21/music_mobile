@@ -1,166 +1,111 @@
-# MusicXML Player
+# Music Mobile
 
-A web-based MusicXML player with mobile support and PDF conversion capabilities.
+A web-based MusicXML player with mobile support and PDF conversion capabilities. This application allows you to view and play MusicXML files, convert PDFs to MusicXML, and provides both web and mobile interfaces.
 
 ## Features
 
-- MusicXML file playback
+- MusicXML file viewing and playback
 - PDF to MusicXML conversion
-- Mobile-responsive design
-- Multiple instrument support
-- Tempo and pitch control
-- PWA support for offline use
+- Mobile-friendly interface
+- Real-time music notation rendering
+- MIDI playback support
+- Responsive design for both desktop and mobile
 
-## Mobile Screen Customization
+## Prerequisites
 
-To customize the mobile screen layout and appearance, you can modify the following CSS variables and media queries in the `demo/index.html` file:
-
-### CSS Variables
-
-```css
-:root {
-  --primary-color: #4a90e2;
-  --secondary-color: #f8f9fa;
-  --text-color: #2c3e50;
-  --border-radius: 8px;
-  --player-height: 120px;
-  --player-height-mobile: 160px;
-}
-```
-
-### Mobile-Specific Styles
-
-The following media queries can be adjusted for different screen sizes:
-
-```css
-@media (max-width: 768px) {
-  body {
-    padding: 10px;
-    padding-bottom: calc(var(--player-height-mobile) + 40px);
-  }
-
-  h1 {
-    font-size: 1.8em !important;
-    margin-bottom: 20px !important;
-  }
-
-  .main-container {
-    padding: 10px;
-  }
-
-  .controls-grid {
-    grid-template-columns: 1fr;
-    gap: 15px;
-  }
-
-  #sheet-container {
-    height: calc(100vh - var(--player-height-mobile) - 180px);
-    padding: 10px;
-    margin: 5px 0;
-  }
-
-  #player {
-    height: var(--player-height-mobile);
-    padding: 8px;
-  }
-}
-```
-
-### Landscape Mode
-
-For landscape orientation on mobile devices:
-
-```css
-@media screen and (orientation: landscape) and (max-height: 600px) {
-  #sheet-container {
-    height: calc(100vh - var(--player-height) - 100px);
-  }
-
-  .player-controls {
-    flex-direction: row;
-    align-items: center;
-  }
-
-  .playback-controls {
-    flex-direction: row;
-    flex: 1;
-  }
-
-  #instrumentSelector {
-    width: 160px;
-  }
-}
-```
-
-### Music Notation Scaling
-
-To adjust the size of music notation on mobile:
-
-```css
-@media (max-width: 768px) {
-  #sheet-container svg {
-    width: 100% !important;
-    height: auto !important;
-  }
-
-  .system {
-    transform-origin: left top;
-    transform: scale(0.9);
-  }
-}
-```
+- Node.js (v16 or higher)
+- npm (v8 or higher)
 
 ## Installation
 
 1. Clone the repository:
 ```bash
 git clone https://github.com/mageh21/music_mobile.git
-```
-
-2. Navigate to the project directory:
-```bash
 cd music_mobile
 ```
 
-3. Install dependencies:
+2. Install dependencies:
 ```bash
 npm install
 ```
 
-4. Start the development servers:
+## Running the Application
+
+The application consists of two parts: the web version and the mobile version. Both can be run simultaneously using the following commands:
+
+### Build the Application
 ```bash
-npx concurrently "npm run demo:develop" "npm run mobile"
+npm run build
 ```
 
-This will start two servers:
-- Demo server at http://localhost:8080
-- Mobile server at http://localhost:8081
-
-## Project Structure
-
+### Start Both Web and Mobile Servers
+```bash
+npm start
 ```
-music_mobile/
-├── demo/
-│   ├── index.html
-│   └── data/
-│       └── (sample music files)
-├── src/
-│   └── mobile/
-│       └── js/
-│           └── (JavaScript files)
-├── build/
-│   └── (compiled files)
-└── README.md
+
+This will start:
+- Web version at http://localhost:8080
+- Mobile version at http://localhost:8081
+
+### Running Separately
+
+To run only the web version:
+```bash
+npm run demo:develop
 ```
+
+To run only the mobile version:
+```bash
+npm run mobile
+```
+
+## Development
+
+### Directory Structure
+- `/src` - Source code
+  - `/mobile` - Mobile interface code
+  - `/js` - JavaScript/TypeScript source files
+- `/demo` - Web interface demo
+- `/build` - Built files
+- `/data` - Sample music files and assets
+
+### Testing
+Run the test suite:
+```bash
+npm test
+```
+
+Run linting:
+```bash
+npm run test:lint
+```
+
+## Usage
+
+1. Web Version (http://localhost:8080):
+   - Upload MusicXML files directly
+   - Convert PDF files to MusicXML
+   - Play and view music notation
+   - Adjust playback settings
+
+2. Mobile Version (http://localhost:8081):
+   - Touch-optimized interface
+   - Responsive music notation display
+   - Mobile-friendly controls
+   - Gesture support for navigation
 
 ## Contributing
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Support
+
+For support, please open an issue in the GitHub repository or contact the maintainers.
