@@ -1576,6 +1576,37 @@
         if (!currentPlayer) return false;
         
         try {
+          // Special handling for rewind to ensure cursor is reset even when player is stopped
+          if (action === 'rewind') {
+            console.log('[safePlayerStateChange] Handling rewind');
+            
+            // Always try to reset the renderer cursor position directly if available
+            try {
+              if (currentPlayer._options && currentPlayer._options.renderer) {
+                console.log('[safePlayerStateChange] Directly resetting renderer cursor position');
+                await currentPlayer._options.renderer.moveTo(0, 0, 0);
+                
+                // Make first measure visible
+                const firstSystem = document.querySelector('g.system');
+                if (firstSystem) {
+                  firstSystem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+              }
+            } catch (renderError) {
+              console.warn('[safePlayerStateChange] Error resetting renderer:', renderError);
+            }
+            
+            // Then try the normal rewind function
+            if (typeof currentPlayer[action] === 'function') {
+              await currentPlayer[action]();
+              return true;
+            } else {
+              console.warn(`[safePlayerStateChange] ${action} is not a function`);
+              return false;
+            }
+          }
+          
+          // Handle all other actions normally
           if (typeof currentPlayer[action] === 'function') {
             await currentPlayer[action]();
             return true;
@@ -2389,42 +2420,51 @@
           } catch (e) {
             console.warn('[rewind] Error during player rewind:', e);
             
-            // Fallback manual rewind
-            await safePlayerStateChange('stop');
-            
-            // Clear audio buffers again after stop
-            if (currentOutput) {
-              try {
-                if (typeof currentOutput.stopAllSounds === 'function') {
-                  await currentOutput.stopAllSounds();
+            // Fallback manual rewind - this handles the case when the player is in stopped state
+            try {
+              // First ensure player is stopped to prevent any current playback
+              await safePlayerStateChange('stop');
+              
+              // Clear audio buffers again after stop
+              if (currentOutput) {
+                try {
+                  if (typeof currentOutput.stopAllSounds === 'function') {
+                    await currentOutput.stopAllSounds();
+                  }
+                  if (typeof currentOutput.clear === 'function') {
+                    await currentOutput.clear();
+                  }
+                } catch (e) {
+                  console.warn('[rewind] Error clearing audio during fallback:', e);
                 }
-                if (typeof currentOutput.clear === 'function') {
-                  await currentOutput.clear();
-                }
-              } catch (e) {
-                console.warn('[rewind] Error clearing audio during fallback:', e);
               }
-            }
 
-            // Small delay to ensure audio buffers are cleared
-            await new Promise(resolve => setTimeout(resolve, 50));
-            
-            if (typeof currentPlayer.seek === 'function') {
-              await currentPlayer.seek(0);
-            }
-            
-            // Reset renderer state
-            const renderer = currentPlayer.renderer;
-            if (renderer) {
-              if (typeof renderer.resetCursor === 'function') {
-                await renderer.resetCursor();
+              // Small delay to ensure audio buffers are cleared
+              await new Promise(resolve => setTimeout(resolve, 50));
+              
+              // Try different approaches to reset the position
+              if (typeof currentPlayer.seek === 'function') {
+                await currentPlayer.seek(0);
               }
-              if (typeof renderer.render === 'function') {
-                await renderer.render();
+              
+              // Access the renderer directly if available
+              const renderer = currentPlayer._options?.renderer;
+              if (renderer) {
+                if (typeof renderer.moveTo === 'function') {
+                  await renderer.moveTo(0, 0, 0);
+                }
+                if (typeof renderer.resetCursor === 'function') {
+                  await renderer.resetCursor();
+                }
+                if (typeof renderer.render === 'function') {
+                  await renderer.render();
+                }
+                if (typeof renderer.updateCursor === 'function') {
+                  await renderer.updateCursor(0);
+                }
               }
-              if (typeof renderer.updateCursor === 'function') {
-                await renderer.updateCursor(0);
-              }
+            } catch (fallbackError) {
+              console.error('[rewind] Fallback rewind failed:', fallbackError);
             }
           }
 
@@ -2453,7 +2493,7 @@
 
           // Small delay before resuming playback if it was playing
           if (wasPlaying) {
-            await new Promise(resolve => setTimeout(resolve, 50));
+            await new Promise(resolve => setTimeout(resolve, 100));
             await playMusic();
           }
 

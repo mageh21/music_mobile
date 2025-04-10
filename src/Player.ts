@@ -252,10 +252,24 @@ export class Player implements IMidiOutput {
     measureStart: MillisecsTimestamp,
     measureOffset: MillisecsTimestamp,
   ) {
+    // For rewinding to position 0, we'll handle it specifically to avoid errors
+    if (measureIndex === 0 && measureStart === 0 && measureOffset === 0) {
+      // Just update the renderer directly without touching the player if it's stopped
+      this._options.renderer.moveTo(0, 0, 0);
+      return;
+    }
+
     // If the player is stopped, set it to paused before continuing.
     if (this._midiPlayer.state === PlayerState.Stopped) {
-      this._midiPlayer.play();
-      this._midiPlayer.pause();
+      try {
+        this._midiPlayer.play();
+        this._midiPlayer.pause();
+      } catch (error) {
+        console.warn("[Player.moveTo] Error transitioning player:", error);
+        // If we can't transition the player, just update the renderer
+        this._options.renderer.moveTo(measureIndex, measureStart, measureOffset);
+        return;
+      }
     }
 
     // Set the playback position.
@@ -270,7 +284,11 @@ export class Player implements IMidiOutput {
       })
       .last();
     if (entry) {
-      this._midiPlayer.position = entry.timestamp + measureOffset;
+      try {
+        this._midiPlayer.position = entry.timestamp + measureOffset;
+      } catch (error) {
+        console.warn("[Player.moveTo] Error setting position:", error);
+      }
     }
 
     // Set the cursor position.
@@ -306,25 +324,102 @@ export class Player implements IMidiOutput {
   }
 
   /**
-   * Stop playback and rewind to start.
+   * Rewind the playback to the beginning.
    */
   rewind() {
-    // First stop the MIDI player and clear any pending sounds
-    this._midiPlayer.stop();
-    this.clear(); // Clear any pending MIDI events
+    // First reset the visual cursor position - this is the most important part for user feedback
+    try {
+      this._options.renderer.moveTo(0, 0, 0);
+    } catch (error) {
+      console.error("[Player.rewind] Error moving cursor:", error);
+    }
     
-    // Reset the timing object first to ensure proper state
+    // Save current state before stopping
+    const wasPlaying = this._midiPlayer.state === PlayerState.Playing;
+    
+    // Clear any pending MIDI events first
+    this.clear();
+    
+    // Reset the timing object
     this._timingObject.update({ velocity: 0, position: 0 });
     
-    // Reset the MIDI player position
-    this._midiPlayer.position = 0;
+    try {
+      // Stop the MIDI player if it's not already stopped
+      if (this._midiPlayer.state !== PlayerState.Stopped) {
+        this._midiPlayer.stop();
+      }
+    } catch (error) {
+      console.log("[Player.rewind] Player stop error:", error);
+    }
     
-    // Reset the visual cursor and scroll to beginning
-    this._options.renderer.moveTo(0, 0, 0);
+    // Create a new player instance if needed
+    if (this._midiPlayer.state === PlayerState.Stopped) {
+      // Re-initialize the MIDI player rather than trying to set position
+      try {
+        this._midiPlayer = new Proxy(
+          createMidiPlayer({
+            json: this._midiFile,
+            midiOutput: this,
+            filterMidiMessage: () => true,
+          }),
+          {
+            get(target, prop) {
+              if (prop === 'stop') {
+                return () => {
+                  try {
+                    target.stop();
+                  } catch {
+                    // Do nothing.
+                  }
+                };
+              } else {
+                return Reflect.get(target, prop);
+              }
+            },
+          },
+        );
+      } catch (error) {
+        console.error("[Player.rewind] Error creating new MIDI player:", error);
+      }
+    } else {
+      // If not stopped, we can set position
+      try {
+        this._midiPlayer.position = 0;
+      } catch (error) {
+        console.error("[Player.rewind] Error setting position:", error);
+        
+        // If setting position fails, recreate the player
+        try {
+          this._midiPlayer = new Proxy(
+            createMidiPlayer({
+              json: this._midiFile,
+              midiOutput: this,
+              filterMidiMessage: () => true,
+            }),
+            {
+              get(target, prop) {
+                if (prop === 'stop') {
+                  return () => {
+                    try {
+                      target.stop();
+                    } catch {
+                      // Do nothing.
+                    }
+                  };
+                } else {
+                  return Reflect.get(target, prop);
+                }
+              },
+            },
+          );
+        } catch (innerError) {
+          console.error("[Player.rewind] Error creating player after position error:", innerError);
+        }
+      }
+    }
     
-    // If we were playing, wait a brief moment before restarting playback
-    // to allow audio buffers to clear
-    if (this._midiPlayer.state === PlayerState.Playing) {
+    // If we were playing before, restart playback after a brief moment
+    if (wasPlaying) {
       setTimeout(() => this._play(), 50);
     }
   }

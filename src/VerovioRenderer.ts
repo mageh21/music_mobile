@@ -148,71 +148,108 @@ export class VerovioRenderer implements ISheetRenderer {
       duration,
     };
 
-    // Find the Verovio notes at the current timestamp.
-    const timestamp = this._timemap[index].timestamp + offset;
-    const elements = <ElementsAtTimeFixed>(
-      this._vrv.getElementsAtTime(timestamp)
-    );
-    const notes = [...(elements.notes || []), ...(elements.rests || [])];
-    if (!notes.length) {
-      // Empty notes: Find the full-measure rest.
-      const mRest = this._measures.elements[index].querySelector('g.mRest');
-      if (mRest) notes.push(mRest.id);
-    }
-
-    // Highlight the notes, only if they changed.
-    if (
-      notes.length !== this._notes.length ||
-      !this._notes.every((noteid, index) => notes[index] === noteid)
-    ) {
-      this._notes.forEach((noteid) => {
-        if (!notes.includes(noteid)) {
-          const note = document.getElementById(noteid);
-          // TODO Restore original attributes.
-          note?.setAttribute('fill', '#000');
-          note?.setAttribute('stroke', '#000');
-        }
-      });
-      this._notes = notes;
+    // Special case for rewinding to the beginning
+    if (index === 0 && start === 0 && offset === 0) {
+      // Clear any previous note highlights
       this._notes.forEach((noteid) => {
         const note = document.getElementById(noteid);
-        if (!note) return;
-
-        // TODO Store original attributes and make highlight attributes configurable.
-        note.setAttribute('fill', 'rgb(234, 107, 36)');
-        note.setAttribute('stroke', 'rgb(234, 107, 36)');
-
-        // Scroll to the highlighted notes.
-        if (this._isHorizontalLayout()) {
-          if (!duration) {
-            note.scrollIntoView({
-              behavior: 'smooth',
-              inline: 'center',
-              block: 'nearest',
-            });
-          }
-        } else {
-          const system = note.closest('g.system');
-          system?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (note) {
+          note.setAttribute('fill', '#000');
+          note.setAttribute('stroke', '#000');
         }
       });
-    }
-
-    // Scroll smoothly if using horizontal mode.
-    if (this._isHorizontalLayout() && duration) {
-      const scrollOffset = Math.round(
-        this._measures.rects[index].left -
-          this._cursorOptions.scrollOffset +
-          Math.min(1.0, offset / duration) * this._measures.rects[index].width,
-      );
-      if (scrollOffset !== this._scroll.offset) {
-        this._container?.scrollTo({ behavior: 'auto', left: scrollOffset });
-        this._scroll.offset = scrollOffset;
+      this._notes = [];
+      
+      // Scroll to the first system
+      try {
+        const firstSystem = document.querySelector('g.system');
+        if (firstSystem) {
+          firstSystem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      } catch (error) {
+        console.warn("[VerovioRenderer.moveTo] Error scrolling to first system:", error);
       }
     }
 
+    // Handle case where timemap is not initialized properly
+    if (!this._timemap || this._timemap.length === 0 || !this._timemap[index]) {
+      console.warn("[VerovioRenderer.moveTo] Invalid timemap state for index:", index);
+      return;
+    }
+
+    try {
+      // Find the Verovio notes at the current timestamp.
+      const timestamp = this._timemap[index]?.timestamp + offset;
+      const elements = <ElementsAtTimeFixed>(
+        this._vrv.getElementsAtTime(timestamp)
+      );
+      const notes = [...(elements.notes || []), ...(elements.rests || [])];
+      if (!notes.length) {
+        // Empty notes: Find the full-measure rest.
+        const mRest = this._measures.elements[index]?.querySelector('g.mRest');
+        if (mRest) notes.push(mRest.id);
+      }
+
+      // Highlight the notes, only if they changed.
+      if (
+        notes.length !== this._notes.length ||
+        !this._notes.every((noteid, idx) => notes[idx] === noteid)
+      ) {
+        this._notes.forEach((noteid) => {
+          if (!notes.includes(noteid)) {
+            const note = document.getElementById(noteid);
+            // TODO Restore original attributes.
+            note?.setAttribute('fill', '#000');
+            note?.setAttribute('stroke', '#000');
+          }
+        });
+        this._notes = notes;
+        this._notes.forEach((noteid) => {
+          const note = document.getElementById(noteid);
+          if (!note) return;
+
+          // TODO Store original attributes and make highlight attributes configurable.
+          note.setAttribute('fill', 'rgb(234, 107, 36)');
+          note.setAttribute('stroke', 'rgb(234, 107, 36)');
+
+          // Scroll to the highlighted notes.
+          if (this._isHorizontalLayout()) {
+            if (!duration) {
+              note.scrollIntoView({
+                behavior: 'smooth',
+                inline: 'center',
+                block: 'nearest',
+              });
+            }
+          } else {
+            const system = note.closest('g.system');
+            system?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        });
+      }
+
+      // Scroll smoothly if using horizontal mode.
+      if (this._isHorizontalLayout() && duration) {
+        const scrollOffset = Math.round(
+          this._measures.rects[index].left -
+            this._cursorOptions.scrollOffset +
+            Math.min(1.0, offset / duration) * this._measures.rects[index].width,
+        );
+        if (scrollOffset !== this._scroll.offset) {
+          this._container?.scrollTo({ behavior: 'auto', left: scrollOffset });
+          this._scroll.offset = scrollOffset;
+        }
+      }
+    } catch (error) {
+      console.error("[VerovioRenderer.moveTo] Error processing notes:", error);
+    }
+
     // Move the cursor.
-    this._move();
+    try {
+      this._move();
+    } catch (error) {
+      console.error("[VerovioRenderer.moveTo] Error moving cursor:", error);
+    }
   }
 
   resize(): void {
@@ -237,31 +274,68 @@ export class VerovioRenderer implements ISheetRenderer {
   }
 
   protected _move() {
-    if (!this._notes.length) return;
-    assertIsDefined(this._container);
+    if (!this._notes.length) {
+      // If there are no notes to move to, just ensure cursor is visible
+      // This can happen when rewinding or during initialization
+      this._cursor.style.transform = `translate(0px,0px)`;
+      return;
+    }
 
-    // FIXME Handle the case where the measure contains elements before the first note.
-    const system =
-      this._measures.elements[this._measure.index].closest('g.system');
-    const systemRect = system!.getBoundingClientRect();
-    const containerRect = this._container?.getBoundingClientRect();
-    this._position = {
-      x:
-        -containerRect.left +
-        (this._measure.duration
-          ? Math.round(
-              this._measures.rects[this._measure.index].left -
-                this._container!.scrollLeft +
-                Math.min(1.0, this._measure.offset / this._measure.duration) *
-                  this._measures.rects[this._measure.index].width,
-            )
-          : document.getElementById(this._notes[0])!.getBoundingClientRect()
-              .left),
-      y: systemRect.top - containerRect.top,
-      height: systemRect.height,
-    };
-    this._cursor.style.transform = `translate(${this._position.x}px,${this._position.y}px)`;
-    this._cursor.style.height = `${this._position.height}px`;
+    if (!this._container) {
+      console.warn("[VerovioRenderer._move] Container not defined");
+      return;
+    }
+
+    try {
+      // FIXME Handle the case where the measure contains elements before the first note.
+      const measureIndex = this._measure.index;
+      if (measureIndex < 0 || measureIndex >= this._measures.elements.length) {
+        console.warn("[VerovioRenderer._move] Invalid measure index:", measureIndex);
+        return;
+      }
+      
+      const system = this._measures.elements[measureIndex]?.closest('g.system');
+      if (!system) {
+        console.warn("[VerovioRenderer._move] Could not find system for measure:", measureIndex);
+        return;
+      }
+      
+      const systemRect = system.getBoundingClientRect();
+      const containerRect = this._container.getBoundingClientRect();
+      
+      let x = 0;
+      if (this._measure.duration) {
+        // Calculate position based on measure duration
+        x = Math.round(
+          this._measures.rects[measureIndex].left -
+            this._container.scrollLeft +
+            Math.min(1.0, this._measure.offset / this._measure.duration) *
+              this._measures.rects[measureIndex].width
+        );
+      } else {
+        // Calculate position based on first note
+        const firstNoteElement = document.getElementById(this._notes[0]);
+        if (firstNoteElement) {
+          x = firstNoteElement.getBoundingClientRect().left - containerRect.left;
+        } else {
+          // Fallback if note element can't be found
+          x = this._measures.rects[measureIndex]?.left - this._container.scrollLeft || 0;
+        }
+      }
+      
+      this._position = {
+        x: -containerRect.left + x,
+        y: systemRect.top - containerRect.top,
+        height: systemRect.height,
+      };
+      
+      this._cursor.style.transform = `translate(${this._position.x}px,${this._position.y}px)`;
+      this._cursor.style.height = `${this._position.height}px`;
+    } catch (error) {
+      console.error("[VerovioRenderer._move] Error moving cursor:", error);
+      // Make cursor visible at top-left at least
+      this._cursor.style.transform = `translate(0px,0px)`;
+    }
   }
 
   protected _redraw() {
