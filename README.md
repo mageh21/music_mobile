@@ -6,6 +6,7 @@ A web-based MusicXML player with mobile support and PDF conversion capabilities.
 
 - MusicXML file viewing and playback
 - PDF to MusicXML conversion
+- MIDIano piano roll visualization for MIDI files
 - Mobile-friendly interface
 - Real-time music notation rendering
 - MIDI playback support
@@ -132,6 +133,60 @@ npm run test:lint
    - Responsive music notation display
    - Mobile-friendly controls
    - Gesture support for navigation
+
+## MIDIano Player
+
+MIDIano is an integrated MIDI player that offers a piano roll visualization of MIDI files. Access it directly from the main application.
+
+### Features
+- Interactive piano roll visualization with falling notes
+- MIDI file playback with SoundFont support
+- Play, pause, and stop controls
+- Master volume adjustment
+- Tracks view for individual track management
+- MIDI setup for external device connections
+
+### How to Use MIDIano
+1. **Access MIDIano**: Navigate to the MIDI Player option from the main navigation menu or go directly to http://localhost:8080/midiano/index.html
+
+2. **Loading MIDI Files**:
+   - Click the home icon in the top-left corner to return to the main app
+   - Use the "Upload MIDI" button to select and load a MIDI file from your device
+   - Alternatively, use the "Loaded Songs" button to select from previously loaded files
+
+3. **Playback Controls**:
+   - Play: Start playback of the loaded MIDI file
+   - Pause: Temporarily stop playback while maintaining position
+   - Stop: Completely stop playback and return to the beginning
+
+4. **Volume Control**:
+   - Use the volume slider in the top-right corner to adjust the master volume
+   - The percentage value shows the current volume level
+
+5. **Tracks Management**:
+   - Click the "Tracks" button to view and manage individual MIDI tracks
+   - Toggle tracks on/off to customize which parts are played and displayed
+
+6. **MIDI Setup**:
+   - Use the "MIDI-Setup" button to configure MIDI input devices 
+   - Connect external MIDI keyboards or controllers for interactive play-along
+
+7. **Performance Indicators**:
+   - The BPM (Beats Per Minute) is displayed in the piano roll view
+   - Current time position is shown in the format 00:00.00 / Total Duration
+
+8. **Keyboard Interaction**:
+   - The virtual piano at the bottom responds to played notes
+   - Keys light up when played by the MIDI file or by connected MIDI devices
+
+### Integrating with the MusicXML Player
+MIDIano complements the main MusicXML player by providing:
+- An alternative visualization focused on piano roll and keyboard
+- Support for standard MIDI files which may not be available in MusicXML format
+- Interactive piano keyboard display for learning and performance
+- Different perspective on the same musical content when both MusicXML and MIDI versions are available
+
+You can switch between the MusicXML notation view and MIDIano's piano roll view depending on your preferences for learning or performing music.
 
 ## Contributing
 
