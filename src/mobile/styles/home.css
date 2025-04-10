@@ -402,4 +402,28 @@
 .subscribe-btn:active {
     background: #00BFA5;
     color: #fff;
+}
+
+/* MIDI Player Placeholder */
+.midi-player-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 60vh;
+    text-align: center;
+    padding: 20px;
+}
+
+.midi-player-placeholder h1 {
+    font-size: 2rem;
+    margin-bottom: 15px;
+    color: #0a1f44;
+}
+
+.midi-player-placeholder p {
+    font-size: 1.1rem;
+    color: #5a6987;
+    max-width: 80%;
+    line-height: 1.5;
 } 

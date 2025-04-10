@@ -1,47 +1,39 @@
-import { build } from 'esbuild';
 import { nodeModulesPolyfillPlugin } from 'esbuild-plugins-node-modules-polyfill';
+import { build } from 'esbuild';
 import process from 'process';
 
-function argv(name) {
-  const prefix = `--${name}=`;
-  const arg = process.argv.find((arg) => arg.startsWith(prefix));
-  return arg ? arg.slice(prefix.length) : null;
+// https://stackoverflow.com/a/69409483/209184
+const argv = key => {
+  // Return true if the key exists and a value is undefined
+  if ( process.argv.includes( `--${ key }` ) ) return true;
+
+  const value = process.argv.find( element => element.startsWith( `--${ key }=` ) );
+
+  // Return null if the key does not exist and a value is undefined
+  if ( !value ) return null;
+
+  return value.replace( `--${ key }=` , '' );
 }
 
 const targets = {
   'esm': {
     format: 'esm',
-    outdir: 'build',
-    entryNames: '[name]',
-    assetNames: '[name]',
-    loader: {
-      '.css': 'css'
-    },
-    bundle: true,
-    splitting: true,
-    chunkNames: '[name]-[hash]',
-    publicPath: '/build/'
+    outfile: 'build/musicxml-player.mjs',
   },
   'cjs': {
     format: 'cjs',
     platform: 'node',
     packages: 'external',
-    outdir: 'build',
-    entryNames: '[name]',
-    assetNames: '[name]',
-    loader: {
-      '.css': 'css'
-    },
-    bundle: true
+    outfile: 'build/musicxml-player.cjs',
   }
-};
+}
 
-const format = argv('format') ?? 'esm';
-
+const format = argv('format') ?? 'mjs';
 build({
-  entryPoints: ['src/index.ts', 'src/player.css'],
+  entryPoints: ['src/index.ts'],
   plugins: [nodeModulesPolyfillPlugin()],
+  bundle: true,
   minify: true,
   sourcemap: true,
   ...targets[format]
-}).catch(() => process.exit(1));
+});

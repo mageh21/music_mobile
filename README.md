@@ -38,6 +38,20 @@ The application consists of two parts: the web version and the mobile version. B
 npm run build
 ```
 
+### Create Symbolic Link for MJS File
+After building, create a symbolic link from musicxml-player.js to musicxml-player.mjs:
+```bash
+cd build
+ln -sf musicxml-player.js musicxml-player.mjs
+cd ..
+```
+
+### Copy Manifest File to Root Directory
+Ensure the manifest.json file is accessible from the root:
+```bash
+cp public/manifest.json .
+```
+
 ### Start Both Web and Mobile Servers
 ```bash
 npm start
@@ -58,6 +72,31 @@ To run only the mobile version:
 ```bash
 npm run mobile
 ```
+
+## Troubleshooting
+
+If you encounter 404 errors for resources like `musicxml-player.css`, `musicxml-player.mjs`, or `manifest.json`, follow these steps:
+
+1. Check if the build process created the correct files:
+   - The application expects `musicxml-player.css` and `musicxml-player.mjs` in the `/build` directory
+   - Verify files exist in the build directory with `ls -la build/`
+
+2. If you see files named `index.js` and `player.css` instead of the expected names:
+   - Update the `esbuild.mjs` file to use correct output filenames:
+     - Change `entryNames: '[name]'` to `entryNames: 'musicxml-player'`
+     - Change `assetNames: '[name]'` to `assetNames: 'musicxml-player'`
+
+3. For the `.mjs` extension requirement:
+   - Create a symbolic link: `ln -sf musicxml-player.js musicxml-player.mjs` in the build directory
+
+4. For manifest.json errors:
+   - Copy the file from public directory: `cp public/manifest.json .`
+
+5. After making these changes, run the build and start commands again:
+   ```bash
+   npm run build
+   npm start
+   ```
 
 ## Development
 
